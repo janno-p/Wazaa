@@ -26,7 +26,11 @@ let ParseQueryParams (query:string) =
         query.Split('&') |> Seq.map (ParsePair '=') |> Map.ofSeq
 
 let (|Path|_|) request =
-    let m = Regex.Match(request, pattern, RegexOptions.IgnoreCase)
+    let input =
+        match request with
+            | null -> ""
+            | _ -> request
+    let m = Regex.Match(input, pattern, RegexOptions.IgnoreCase)
     if m.Success then
         let (path, query) = ParsePair '?' m.Groups.["path"].Value
         let queryParams = ParseQueryParams query
