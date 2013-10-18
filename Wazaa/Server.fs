@@ -62,5 +62,7 @@ let runServer (server:TcpListener) = async {
 let HttpServer (ip, port) : TcpListener =
     let server = new TcpListener(IPAddress.Parse(ip), port)
     server.Start()
+    printfn "Server started."
+    printfn "Listening incoming connections on port %d..." port
     Async.Start (runServer server)
     server
