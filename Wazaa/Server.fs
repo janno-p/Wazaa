@@ -52,10 +52,15 @@ let serveClient (client:TcpClient) = async {
     stream.Close()
 }
 
-let HttpServer (ip, port) =
-    let server = new TcpListener(IPAddress.Parse(ip), port)
-    server.Start()
+let runServer (server:TcpListener) = async {
     while true do
         let client = server.AcceptTcpClient()
         printfn "New client: %O" client.Client.RemoteEndPoint
         Async.Start(serveClient client)
+}
+
+let HttpServer (ip, port) : TcpListener =
+    let server = new TcpListener(IPAddress.Parse(ip), port)
+    server.Start()
+    Async.Start (runServer server)
+    server
