@@ -1,24 +1,22 @@
-namespace Wazaa
-    module Main =
-        
-        open System
-        open System.Net
-        open System.Threading
-        open Gtk
+module Wazaa.Main
 
-        let host = "127.0.0.1"
-        let port = 2345
-    
-        [<EntryPoint>]
-        let Main(args) =
-            Application.Init()
+open System
+open System.Net
+open System.Threading
+open Gtk
 
-            let server = Server.HttpServer(host, port)
+let host = "127.0.0.1"
+let port = 2345
 
-            let window = new MainWindow.MyWindow()
-            window.Show()
-            Application.Run()
+[<EntryPoint>]
+let Main(args) =
+    Application.Init()
 
-            server.Stop()
-            0
+    let server = Server.HttpServer(host, port)
 
+    let window = new MainWindow.MyWindow()
+    window.Show()
+    Application.Run()
+
+    server.Stop()
+    0

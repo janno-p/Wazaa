@@ -1,7 +1,7 @@
 module Wazaa.AssemblyInfo
+
 open System.Reflection
 open System.Runtime.CompilerServices
-
 
 [<assembly: AssemblyTitle("Wazaa")>]
 [<assembly: AssemblyDescription("")>]
