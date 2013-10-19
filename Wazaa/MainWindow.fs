@@ -24,6 +24,7 @@ type MyWindow() as this =
 
     let lblServerLog = new Label("Server Log")
     let txtServerLog = new TextView(CanFocus = true, Editable = false, WrapMode = WrapMode.WordChar)
+    let btnClearLog = new Button(Label="Clear Log")
     let scrollWindow =
         txtServerLog.Buffer.TagTable.Add(new TextTag("info", Foreground="#007F00"))
         txtServerLog.Buffer.TagTable.Add(new TextTag("warning", Foreground="#FF7F00"))
@@ -31,10 +32,13 @@ type MyWindow() as this =
         let w = new ScrolledWindow()
         w.Add(txtServerLog)
         txtServerLog.BorderWidth <- 1u
-        let vb = new VBox(true, 0)
+        let vb = new VBox(false, 0)
         let hb = new HBox(true, 0)
+        let hb2 = new HBox(true, 0)
         vb.PackStart(hb, true, true, 10u)
+        vb.PackStart(hb2, false, false, 0u)
         hb.PackStart(w, true, true, 10u)
+        hb2.PackStart(btnClearLog, false, false, 0u)
         notebook.Add(vb)
         notebook.SetTabLabel(vb, lblServerLog)
         w
@@ -47,12 +51,20 @@ type MyWindow() as this =
     let noticeTabColor = new Gdk.Color(0uy, 127uy, 0uy)
     let errorTabColor = new Gdk.Color(127uy, 0uy, 0uy)
 
+    let OnClearLogButtonClickedEvent o e =
+        txtServerLog.Buffer.Clear()
+
     let OnSwitchPageEvent o (e:SwitchPageArgs) =
         let widget = notebook.GetNthPage(int(e.PageNum))
         let label = notebook.GetTabLabel(widget)
         label.ModifyFg(StateType.Active, regularTabColor)
+    
+    let OnDeleteEvent o (e:DeleteEventArgs) =
+        Application.Quit()
+        e.RetVal <- true
 
     do notebook.SwitchPage.AddHandler (fun o e -> OnSwitchPageEvent o e)
+    do btnClearLog.Clicked.AddHandler (fun o e -> OnClearLogButtonClickedEvent o e)
 
     let mutable color = new Gdk.Color()
     do Gdk.Color.Parse("red", &color) |> ignore
@@ -60,7 +72,7 @@ type MyWindow() as this =
     do lblServerLog.ModifyFg(StateType.Active, color)
 
     do this.SetDefaultSize(400,300)
-    do this.DeleteEvent.AddHandler(fun o e -> this.OnDeleteEvent(o, e))
+    do this.DeleteEvent.AddHandler (fun o e -> OnDeleteEvent o e)
 
     do this.ShowAll()
 
@@ -74,10 +86,6 @@ type MyWindow() as this =
                 | "info" | "warning" -> noticeTabColor
                 | _ -> errorTabColor
             lblServerLog.ModifyFg(StateType.Active, color)
-
-    member this.OnDeleteEvent(o,e:DeleteEventArgs) = 
-        Application.Quit ()
-        e.RetVal <- true
 
     interface ILogger with
         member this.Info message =

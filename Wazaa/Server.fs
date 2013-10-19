@@ -44,7 +44,6 @@ let serveClient (client:TcpClient) = async {
     use stream = client.GetStream()
     use reader = new StreamReader(stream)
     let request = reader.ReadLine()
-    printfn "%s" request
     match request with
         | Path ("GET", "getfile", query) -> logger.Info (sprintf "TODO: Get File: %O" query)
         | Path ("GET", "searchfile", query) -> logger.Info (sprintf "TODO: Search File: %O" query)
