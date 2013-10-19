@@ -6,11 +6,14 @@ open System.Net
 open System.Net.Sockets
 open System.Text
 open System.Text.RegularExpressions
+open Wazaa.Logger
 
 let headers = Encoding.ASCII.GetBytes("HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Length: 1\r\nServer: Wazaa/0.0.1\r\n\r\n")
 let content = Encoding.UTF8.GetBytes("0")
 
 let pattern = @"^(?<method>GET|POST)\s+\/?(?<path>.*?)(\s+HTTP\/1\.[01])$"
+
+let mutable logger = new ConsoleLogger() :> ILogger
 
 let ParsePair (c:char) (pair:string) =
     let breakAt = pair.IndexOf(c)
@@ -43,26 +46,29 @@ let serveClient (client:TcpClient) = async {
     let request = reader.ReadLine()
     printfn "%s" request
     match request with
-        | Path ("GET", "getfile", query) -> printfn "TODO: Get File: %O" query
-        | Path ("GET", "searchfile", query) -> printfn "TODO: Search File: %O" query
-        | Path ("POST", "foundfile", query) -> printfn "TODO: Found File: %O" query
-        | _ -> printfn "not ok"
+        | Path ("GET", "getfile", query) -> logger.Info (sprintf "TODO: Get File: %O" query)
+        | Path ("GET", "searchfile", query) -> logger.Info (sprintf "TODO: Search File: %O" query)
+        | Path ("POST", "foundfile", query) -> logger.Info (sprintf "TODO: Found File: %O" query)
+        | _ -> logger.Warning "not ok"
     do! stream.AsyncWrite(headers)
     do! stream.AsyncWrite(content)
     stream.Close()
 }
 
 let runServer (server:TcpListener) = async {
-    while true do
-        let client = server.AcceptTcpClient()
-        printfn "New client: %O" client.Client.RemoteEndPoint
-        Async.Start(serveClient client)
+    try
+        while true do
+            let client = server.AcceptTcpClient()
+            logger.Info (sprintf "New client: %O" client.Client.RemoteEndPoint)
+            Async.Start(serveClient client)
+    with
+    | :? SocketException -> logger.Warning "Server stopped."
 }
 
 let HttpServer (ip, port) : TcpListener =
     let server = new TcpListener(IPAddress.Parse(ip), port)
     server.Start()
-    printfn "Server started."
-    printfn "Listening incoming connections on port %d..." port
+    logger.Info "Server started."
+    logger.Info (sprintf "Listening incoming connections on port %d..." port)
     Async.Start (runServer server)
     server

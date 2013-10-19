@@ -12,9 +12,11 @@ let port = 2345
 let Main(args) =
     Application.Init()
 
+    let window = new MainWindow.MyWindow()
+    Server.logger <- window
+
     let server = Server.HttpServer(host, port)
 
-    let window = new MainWindow.MyWindow()
     window.Show()
     Application.Run()
 
