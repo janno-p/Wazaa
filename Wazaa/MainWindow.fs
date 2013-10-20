@@ -1,4 +1,4 @@
-module Wazaa.MainWindow
+module Wazaa.Gui.MainWindow
 
 open System
 open System.Diagnostics

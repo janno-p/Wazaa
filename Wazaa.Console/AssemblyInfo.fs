@@ -1,9 +1,9 @@
-module Wazaa.Gui.AssemblyInfo
+module Wazaa.Console.AssemblyInfo
 
 open System.Reflection
 open System.Runtime.CompilerServices
 
-[<assembly: AssemblyTitle("Wazaa")>]
+[<assembly: AssemblyTitle("Wazaa.Console")>]
 [<assembly: AssemblyDescription("")>]
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("")>]

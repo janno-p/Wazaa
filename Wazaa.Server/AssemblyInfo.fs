@@ -1,4 +1,4 @@
-module Wazaa.Gui.AssemblyInfo
+module Wazaa.AssemblyInfo
 
 open System.Reflection
 open System.Runtime.CompilerServices

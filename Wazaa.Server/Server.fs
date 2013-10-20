@@ -56,7 +56,7 @@ let serveClient (client:TcpClient) = async {
     stream.Close()
 }
 
-let runServer (server:TcpListener) = async {
+let RunServerAsync (server:TcpListener) = async {
     try
         while true do
             let client = server.AcceptTcpClient()
@@ -71,5 +71,5 @@ let HttpServer (ip, port) : TcpListener =
     server.Start()
     logger.Info "Server started."
     logger.Info (sprintf "Listening incoming connections on port %d..." port)
-    Async.Start (runServer server)
     server
+    //Async.Start (runServer server)

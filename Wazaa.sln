@@ -1,13 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Wazaa", "Wazaa\Wazaa.fsproj", "{37776400-B4BF-4FDE-A5C7-FCC8F418D654}"
+Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Wazaa.Gui", "Wazaa\Wazaa.Gui.fsproj", "{37776400-B4BF-4FDE-A5C7-FCC8F418D654}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Files", "Solution Files", "{9AC821A0-A82C-4482-A8EE-9D2C2154B1EC}"
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
 		README.md = README.md
 	EndProjectSection
+EndProject
+Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Wazaa", "Wazaa.Server\Wazaa.fsproj", "{ACCEDF4E-95DD-42BF-AAEC-D2133DA6F3D6}"
+EndProject
+Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Wazaa.Console", "Wazaa.Console\Wazaa.Console.fsproj", "{C629735A-B43C-4B12-9C9F-0308A9120F64}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,11 +23,19 @@ Global
 		{37776400-B4BF-4FDE-A5C7-FCC8F418D654}.Debug|x86.Build.0 = Debug|x86
 		{37776400-B4BF-4FDE-A5C7-FCC8F418D654}.Release|x86.ActiveCfg = Release|x86
 		{37776400-B4BF-4FDE-A5C7-FCC8F418D654}.Release|x86.Build.0 = Release|x86
+		{ACCEDF4E-95DD-42BF-AAEC-D2133DA6F3D6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{ACCEDF4E-95DD-42BF-AAEC-D2133DA6F3D6}.Debug|x86.Build.0 = Debug|Any CPU
+		{ACCEDF4E-95DD-42BF-AAEC-D2133DA6F3D6}.Release|x86.ActiveCfg = Release|Any CPU
+		{ACCEDF4E-95DD-42BF-AAEC-D2133DA6F3D6}.Release|x86.Build.0 = Release|Any CPU
+		{C629735A-B43C-4B12-9C9F-0308A9120F64}.Debug|x86.ActiveCfg = Debug|x86
+		{C629735A-B43C-4B12-9C9F-0308A9120F64}.Debug|x86.Build.0 = Debug|x86
+		{C629735A-B43C-4B12-9C9F-0308A9120F64}.Release|x86.ActiveCfg = Release|x86
+		{C629735A-B43C-4B12-9C9F-0308A9120F64}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = Wazaa\Wazaa.fsproj
+		StartupItem = Wazaa\Wazaa.Gui.fsproj
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
