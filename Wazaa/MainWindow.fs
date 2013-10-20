@@ -33,7 +33,7 @@ type MyWindow() as this =
 
     let logSection =
         let expander = new Expander("Log Messages")
-        let swin = new ScrolledWindow()
+        let swin = new ScrolledWindow(BorderWidth=10u)
         swin.Add(txtServerLog)
         expander.Add(swin)
         expander
@@ -79,7 +79,7 @@ type MyWindow() as this =
 
     let configurationSection =
         let expander = new Expander("Configuration")
-        let vbox = new VBox()
+        let vbox = new VBox(BorderWidth=10u)
         let customizationFrame = new Frame("Application customization")
         vbox.PackStart(customizationFrame, false, true, 3u)
         let portLabel = new Label("Port number: ")
@@ -87,7 +87,7 @@ type MyWindow() as this =
         let folderLabel = new Label("Shared folder: ")
         folderLabel.Justify <- Justification.Right
         let customizationTable =
-            let table = new Table(2u, 3u, false, ColumnSpacing=5u, RowSpacing=5u)
+            let table = new Table(2u, 3u, false, ColumnSpacing=5u, RowSpacing=5u, BorderWidth=10u)
             table.Attach(portLabel, 0u, 1u, 0u, 1u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
             table.Attach(portNumberEntry, 1u, 2u, 0u, 1u)
             table.Attach(folderLabel, 0u, 1u, 1u, 2u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
@@ -98,7 +98,6 @@ type MyWindow() as this =
             let hboxButton = new HBox()
             hboxButton.PackEnd(saveConfigurationButton, false, false, 0u)
             table.Attach(hboxButton, 1u, 2u, 2u, 3u)
-            table.BorderWidth <- 10u
             table
         customizationFrame.Add(customizationTable)
         let knownPeersFrame = new Frame("Known peers")
