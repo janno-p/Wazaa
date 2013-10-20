@@ -45,9 +45,37 @@ type MyWindow() as this =
     let saveConfigurationButton = new Button(Label="Apply Changes", Sensitive=false)
     let selectSharedFolderButton = new Button(Label="...")
 
+    let searchFileEntry = new Entry()
+    let searchFileButton = new Button(Label="Search")
+
+    let treeStore = new ListStore(typeof<string>, typeof<string>)
+    do treeStore.AppendValues("File1.txt", "127.0.0.1:2345") |> ignore
+
+    let treeFiles =
+        let tree = new TreeView(treeStore)
+        let addColumn title columnId =
+            let renderer = new CellRendererText()
+            let column = new TreeViewColumn(Title=title)
+            column.PackStart(renderer, true)
+            column.AddAttribute(renderer, "text", columnId)
+            tree.AppendColumn(column) |> ignore
+        addColumn "File name" 0
+        addColumn "IP address / Port" 1
+        tree
+
     let searchSection =
         let frame = new Frame("Wazaa Search")
-
+        let searchFileLabel = new Label("Search file: ")
+        let vbox = new VBox(BorderWidth=10u)
+        let hboxSearchBar = new HBox()
+        hboxSearchBar.PackStart(searchFileLabel, false, false, 5u)
+        hboxSearchBar.PackStart(searchFileEntry, true, true, 5u)
+        hboxSearchBar.PackStart(searchFileButton, false, false, 5u)
+        vbox.PackStart(hboxSearchBar, false, true, 0u)
+        frame.Add(vbox)
+        let swin = new ScrolledWindow()
+        swin.Add(treeFiles)
+        vbox.PackStart(swin, true, true, 5u)
         frame
 
     let configurationSection =
@@ -55,24 +83,24 @@ type MyWindow() as this =
         let vbox = new VBox()
         let customizationFrame = new Frame("Application customization")
         vbox.PackStart(customizationFrame, false, true, 3u)
-        let customizationTable = new Table(2u, 3u, false)
         let portLabel = new Label("Port number: ")
         portLabel.Justify <- Justification.Right
-        customizationTable.Attach(portLabel, 0u, 1u, 0u, 1u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
-        customizationTable.Attach(portNumberEntry, 1u, 2u, 0u, 1u)
         let folderLabel = new Label("Shared folder: ")
         folderLabel.Justify <- Justification.Right
-        customizationTable.Attach(folderLabel, 0u, 1u, 1u, 2u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
-        let hboxSharedFolder = new HBox()
-        hboxSharedFolder.PackStart(sharedFolderEntry, true, true, 0u)
-        hboxSharedFolder.PackEnd(selectSharedFolderButton, false, false, 0u)
-        customizationTable.Attach(hboxSharedFolder, 1u, 2u, 1u, 2u)
-        customizationTable.ColumnSpacing <- 5u
-        customizationTable.RowSpacing <- 5u
-        let hboxButton = new HBox()
-        hboxButton.PackEnd(saveConfigurationButton, false, false, 0u)
-        customizationTable.Attach(hboxButton, 1u, 2u, 2u, 3u)
-        customizationTable.BorderWidth <- 10u
+        let customizationTable =
+            let table = new Table(2u, 3u, false, ColumnSpacing=5u, RowSpacing=5u)
+            table.Attach(portLabel, 0u, 1u, 0u, 1u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
+            table.Attach(portNumberEntry, 1u, 2u, 0u, 1u)
+            table.Attach(folderLabel, 0u, 1u, 1u, 2u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
+            let hboxSharedFolder = new HBox()
+            hboxSharedFolder.PackStart(sharedFolderEntry, true, true, 0u)
+            hboxSharedFolder.PackEnd(selectSharedFolderButton, false, false, 0u)
+            table.Attach(hboxSharedFolder, 1u, 2u, 1u, 2u)
+            let hboxButton = new HBox()
+            hboxButton.PackEnd(saveConfigurationButton, false, false, 0u)
+            table.Attach(hboxButton, 1u, 2u, 2u, 3u)
+            table.BorderWidth <- 10u
+            table
         customizationFrame.Add(customizationTable)
         let knownPeersFrame = new Frame("Known peers")
         vbox.PackStart(knownPeersFrame, false, true, 3u)
@@ -86,48 +114,6 @@ type MyWindow() as this =
         vbox.PackStart(configurationSection, false, true, 3u)
         this.Add(vbox)
         vbox
-
-    (*
-
-
-
-
-
-
-    let entSearchFile = new Entry()
-    let btnSearchFile = new Button(Label="Search")
-    let treeFiles = new TreeView()
-
-    let notebook =
-        let vbox = new VBox(false, 0)
-        let hbox = new HBox(false, 0)
-        let lbl = new Label("File name: ")
-        hbox.PackStart(lbl, false, false, 0u)
-        hbox.PackStart(entSearchFile, true, true, 0u)
-        hbox.PackStart(btnSearchFile, false, false, 0u)
-        vbox.PackStart(hbox, false, false, 0u)
-        let sw2 = new ScrolledWindow()
-        sw2.Add(treeFiles)
-        treeFiles.BorderWidth <- 1u
-        treeFiles.ModifyBg(StateType.Normal, new Gdk.Color(128uy, 0uy, 0uy))
-        let fileNameColumn = new TreeViewColumn(Title="File name")
-        treeFiles.AppendColumn(fileNameColumn) |> ignore
-        let ipPortColumn = new TreeViewColumn(Title="IP address / Port")
-        treeFiles.AppendColumn(ipPortColumn) |> ignore
-        let store = new ListStore(typeof<string>, typeof<string>)
-        store.AppendValues("File1.txt", "127.0.0.1:2345") |> ignore
-        treeFiles.Model <- store
-        let rendererName = new CellRendererText()
-        fileNameColumn.PackStart(rendererName, true)
-        let rendererIPPort = new CellRendererText()
-        ipPortColumn.PackStart(rendererIPPort, true)
-        fileNameColumn.AddAttribute(rendererName, "text", 0)
-        ipPortColumn.AddAttribute(rendererIPPort, "text", 1)
-        vbox.PackStart(sw2, true, true, 0u)
-        vpaned.Pack1(vbox, true, false)
-        notebook
-
-    *)
 
     let regularTabColor = new Gdk.Color(0uy, 0uy, 0uy)
     let noticeTabColor = new Gdk.Color(0uy, 127uy, 0uy)
