@@ -13,6 +13,8 @@ let content = Encoding.UTF8.GetBytes("0")
 
 let pattern = @"^(?<method>GET|POST)\s+\/?(?<path>.*?)(\s+HTTP\/1\.[01])$"
 
+let DefaultPortNumber = 2345
+
 let mutable logger = new ConsoleLogger() :> ILogger
 
 let ParsePair (c:char) (pair:string) =

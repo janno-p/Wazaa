@@ -12,8 +12,17 @@ let windowTitle =
     let fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location)
     sprintf "Wazaa v. %s" fileVersionInfo.FileVersion
 
+let defaultWazaaDirectory =
+    let userDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+    System.IO.Path.Combine(userDirectory, "wazaa")
+
 type MyWindow() as this =
     inherit Window(windowTitle)
+
+    let mutable portNumber = Wazaa.Server.DefaultPortNumber
+    let mutable sharedFolder = defaultWazaaDirectory
+
+    let btnClearLog = new Button(Label="Clear Log")
 
     let txtServerLog =
         let txt = new TextView(CanFocus=true, Editable=false, WrapMode=WrapMode.WordChar)
@@ -23,21 +32,73 @@ type MyWindow() as this =
         txt.BorderWidth <- 1u
         txt
 
-    let btnClearLog = new Button(Label="Clear Log")
+    let logSection =
+        let expander = new Expander("Log Messages")
+        let swin = new ScrolledWindow()
+        swin.Add(txtServerLog)
+        expander.Add(swin)
+        expander
+
+    let portNumberEntry = new Entry(Text=portNumber.ToString())
+    let sharedFolderEntry = new Entry(Text=sharedFolder)
+
+    let saveConfigurationButton = new Button(Label="Apply Changes", Sensitive=false)
+    let selectSharedFolderButton = new Button(Label="...")
+
+    let searchSection =
+        let frame = new Frame("Wazaa Search")
+
+        frame
+
+    let configurationSection =
+        let expander = new Expander("Configuration")
+        let vbox = new VBox()
+        let customizationFrame = new Frame("Application customization")
+        vbox.PackStart(customizationFrame, false, true, 3u)
+        let customizationTable = new Table(2u, 3u, false)
+        let portLabel = new Label("Port number: ")
+        portLabel.Justify <- Justification.Right
+        customizationTable.Attach(portLabel, 0u, 1u, 0u, 1u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
+        customizationTable.Attach(portNumberEntry, 1u, 2u, 0u, 1u)
+        let folderLabel = new Label("Shared folder: ")
+        folderLabel.Justify <- Justification.Right
+        customizationTable.Attach(folderLabel, 0u, 1u, 1u, 2u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
+        let hboxSharedFolder = new HBox()
+        hboxSharedFolder.PackStart(sharedFolderEntry, true, true, 0u)
+        hboxSharedFolder.PackEnd(selectSharedFolderButton, false, false, 0u)
+        customizationTable.Attach(hboxSharedFolder, 1u, 2u, 1u, 2u)
+        customizationTable.ColumnSpacing <- 5u
+        customizationTable.RowSpacing <- 5u
+        let hboxButton = new HBox()
+        hboxButton.PackEnd(saveConfigurationButton, false, false, 0u)
+        customizationTable.Attach(hboxButton, 1u, 2u, 2u, 3u)
+        customizationTable.BorderWidth <- 10u
+        customizationFrame.Add(customizationTable)
+        let knownPeersFrame = new Frame("Known peers")
+        vbox.PackStart(knownPeersFrame, false, true, 3u)
+        expander.Add(vbox)
+        expander
+
+    let mainContainer =
+        let vbox = new VBox()
+        vbox.PackStart(searchSection, true, true, 3u)
+        vbox.PackStart(logSection, false, true, 3u)
+        vbox.PackStart(configurationSection, false, true, 3u)
+        this.Add(vbox)
+        vbox
+
+    (*
+
+
+
+
+
 
     let entSearchFile = new Entry()
     let btnSearchFile = new Button(Label="Search")
     let treeFiles = new TreeView()
 
     let notebook =
-        let notebook = new Notebook()
-        let vpaned = new VPaned()
-        notebook.Add(vpaned)
-        notebook.SetTabLabelText(vpaned, "Wazaa")
-        this.Add(notebook)
-        let scrolledWindow = new ScrolledWindow()
-        scrolledWindow.Add(txtServerLog)
-        vpaned.Pack2(scrolledWindow, true, true)
         let vbox = new VBox(false, 0)
         let hbox = new HBox(false, 0)
         let lbl = new Label("File name: ")
@@ -66,9 +127,7 @@ type MyWindow() as this =
         vpaned.Pack1(vbox, true, false)
         notebook
 
-    let labelSettings = new Label("Settings :)")
-    do notebook.Add(labelSettings)
-    do notebook.SetTabLabelText(labelSettings, "Settings")
+    *)
 
     let regularTabColor = new Gdk.Color(0uy, 0uy, 0uy)
     let noticeTabColor = new Gdk.Color(0uy, 127uy, 0uy)
@@ -77,16 +136,10 @@ type MyWindow() as this =
     let OnClearLogButtonClickedEvent o e =
         txtServerLog.Buffer.Clear()
 
-    let OnSwitchPageEvent o (e:SwitchPageArgs) =
-        let widget = notebook.GetNthPage(int(e.PageNum))
-        let label = notebook.GetTabLabel(widget)
-        label.ModifyFg(StateType.Active, regularTabColor)
-    
     let OnDeleteEvent o (e:DeleteEventArgs) =
         Application.Quit()
         e.RetVal <- true
 
-    do notebook.SwitchPage.AddHandler (fun o e -> OnSwitchPageEvent o e)
     do btnClearLog.Clicked.AddHandler (fun o e -> OnClearLogButtonClickedEvent o e)
 
     do this.SetDefaultSize(400,300)
@@ -98,6 +151,8 @@ type MyWindow() as this =
         let mutable endIter = txtServerLog.Buffer.EndIter
         txtServerLog.Buffer.InsertWithTagsByName(&endIter, message + Environment.NewLine, tag)
         txtServerLog.ScrollToIter(endIter, 0.0, false, 0.0, 0.0) |> ignore
+
+    member val PortNumber = portNumber with get, set
 
     interface ILogger with
         member this.Info message =

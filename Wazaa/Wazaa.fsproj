@@ -40,9 +40,9 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Logger.fs" />
-    <Compile Include="MainWindow.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="Server.fs" />
+    <Compile Include="MainWindow.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
