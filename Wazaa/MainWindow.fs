@@ -15,33 +15,56 @@ let windowTitle =
 type MyWindow() as this =
     inherit Window(windowTitle)
 
-    let notebook = new Notebook()
-    do this.Add(notebook)
+    let txtServerLog =
+        let txt = new TextView(CanFocus=true, Editable=false, WrapMode=WrapMode.WordChar)
+        txt.Buffer.TagTable.Add(new TextTag("info", Foreground="#007F00"))
+        txt.Buffer.TagTable.Add(new TextTag("warning", Foreground="#FF7F00"))
+        txt.Buffer.TagTable.Add(new TextTag("error", Foreground="#FF0000"))
+        txt.BorderWidth <- 1u
+        txt
 
-    let labelWazaa = new Label("Wazaa :)")
-    do notebook.Add(labelWazaa)
-    do notebook.SetTabLabelText(labelWazaa, "Wazaa")
-
-    let lblServerLog = new Label("Server Log")
-    let txtServerLog = new TextView(CanFocus = true, Editable = false, WrapMode = WrapMode.WordChar)
     let btnClearLog = new Button(Label="Clear Log")
-    let scrollWindow =
-        txtServerLog.Buffer.TagTable.Add(new TextTag("info", Foreground="#007F00"))
-        txtServerLog.Buffer.TagTable.Add(new TextTag("warning", Foreground="#FF7F00"))
-        txtServerLog.Buffer.TagTable.Add(new TextTag("error", Foreground="#FF0000"))
-        let w = new ScrolledWindow()
-        w.Add(txtServerLog)
-        txtServerLog.BorderWidth <- 1u
-        let vb = new VBox(false, 0)
-        let hb = new HBox(true, 0)
-        let hb2 = new HBox(true, 0)
-        vb.PackStart(hb, true, true, 10u)
-        vb.PackStart(hb2, false, false, 0u)
-        hb.PackStart(w, true, true, 10u)
-        hb2.PackStart(btnClearLog, false, false, 0u)
-        notebook.Add(vb)
-        notebook.SetTabLabel(vb, lblServerLog)
-        w
+
+    let entSearchFile = new Entry()
+    let btnSearchFile = new Button(Label="Search")
+    let treeFiles = new TreeView()
+
+    let notebook =
+        let notebook = new Notebook()
+        let vpaned = new VPaned()
+        notebook.Add(vpaned)
+        notebook.SetTabLabelText(vpaned, "Wazaa")
+        this.Add(notebook)
+        let scrolledWindow = new ScrolledWindow()
+        scrolledWindow.Add(txtServerLog)
+        vpaned.Pack2(scrolledWindow, true, true)
+        let vbox = new VBox(false, 0)
+        let hbox = new HBox(false, 0)
+        let lbl = new Label("File name: ")
+        hbox.PackStart(lbl, false, false, 0u)
+        hbox.PackStart(entSearchFile, true, true, 0u)
+        hbox.PackStart(btnSearchFile, false, false, 0u)
+        vbox.PackStart(hbox, false, false, 0u)
+        let sw2 = new ScrolledWindow()
+        sw2.Add(treeFiles)
+        treeFiles.BorderWidth <- 1u
+        treeFiles.ModifyBg(StateType.Normal, new Gdk.Color(128uy, 0uy, 0uy))
+        let fileNameColumn = new TreeViewColumn(Title="File name")
+        treeFiles.AppendColumn(fileNameColumn) |> ignore
+        let ipPortColumn = new TreeViewColumn(Title="IP address / Port")
+        treeFiles.AppendColumn(ipPortColumn) |> ignore
+        let store = new ListStore(typeof<string>, typeof<string>)
+        store.AppendValues("File1.txt", "127.0.0.1:2345") |> ignore
+        treeFiles.Model <- store
+        let rendererName = new CellRendererText()
+        fileNameColumn.PackStart(rendererName, true)
+        let rendererIPPort = new CellRendererText()
+        ipPortColumn.PackStart(rendererIPPort, true)
+        fileNameColumn.AddAttribute(rendererName, "text", 0)
+        ipPortColumn.AddAttribute(rendererIPPort, "text", 1)
+        vbox.PackStart(sw2, true, true, 0u)
+        vpaned.Pack1(vbox, true, false)
+        notebook
 
     let labelSettings = new Label("Settings :)")
     do notebook.Add(labelSettings)
@@ -66,11 +89,6 @@ type MyWindow() as this =
     do notebook.SwitchPage.AddHandler (fun o e -> OnSwitchPageEvent o e)
     do btnClearLog.Clicked.AddHandler (fun o e -> OnClearLogButtonClickedEvent o e)
 
-    let mutable color = new Gdk.Color()
-    do Gdk.Color.Parse("red", &color) |> ignore
-    do labelSettings.ModifyFg(StateType.Normal, color)
-    do lblServerLog.ModifyFg(StateType.Active, color)
-
     do this.SetDefaultSize(400,300)
     do this.DeleteEvent.AddHandler (fun o e -> OnDeleteEvent o e)
 
@@ -80,12 +98,6 @@ type MyWindow() as this =
         let mutable endIter = txtServerLog.Buffer.EndIter
         txtServerLog.Buffer.InsertWithTagsByName(&endIter, message + Environment.NewLine, tag)
         txtServerLog.ScrollToIter(endIter, 0.0, false, 0.0, 0.0) |> ignore
-        if notebook.GetTabLabel(notebook.CurrentPageWidget) :?> Label <> lblServerLog then
-            let color =
-                match tag with
-                | "info" | "warning" -> noticeTabColor
-                | _ -> errorTabColor
-            lblServerLog.ModifyFg(StateType.Active, color)
 
     interface ILogger with
         member this.Info message =
