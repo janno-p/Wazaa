@@ -25,11 +25,10 @@ type MyWindow() as this =
     let btnClearLog = new Button(Label="Clear Log")
 
     let txtServerLog =
-        let txt = new TextView(CanFocus=true, Editable=false, WrapMode=WrapMode.WordChar)
+        let txt = new TextView(CanFocus=true, Editable=false, WrapMode=WrapMode.WordChar, BorderWidth=1u)
         txt.Buffer.TagTable.Add(new TextTag("info", Foreground="#007F00"))
         txt.Buffer.TagTable.Add(new TextTag("warning", Foreground="#FF7F00"))
         txt.Buffer.TagTable.Add(new TextTag("error", Foreground="#FF0000"))
-        txt.BorderWidth <- 1u
         txt
 
     let logSection =
@@ -46,7 +45,7 @@ type MyWindow() as this =
     let selectSharedFolderButton = new Button(Label="...")
 
     let searchFileEntry = new Entry()
-    let searchFileButton = new Button(Label="Search")
+    let searchFileButton = new Button(Label="Search", Sensitive=false)
 
     let treeStore = new ListStore(typeof<string>, typeof<string>)
     do treeStore.AppendValues("File1.txt", "127.0.0.1:2345") |> ignore
@@ -119,17 +118,23 @@ type MyWindow() as this =
     let noticeTabColor = new Gdk.Color(0uy, 127uy, 0uy)
     let errorTabColor = new Gdk.Color(127uy, 0uy, 0uy)
 
-    let OnClearLogButtonClickedEvent o e =
-        txtServerLog.Buffer.Clear()
+    do this.SetDefaultSize(400, 300)
 
-    let OnDeleteEvent o (e:DeleteEventArgs) =
+    do btnClearLog.Clicked.AddHandler (fun o e ->
+        txtServerLog.Buffer.Clear()
+    )
+
+    do searchFileEntry.Changed.AddHandler (fun o e ->
+        searchFileButton.Sensitive <-
+            match searchFileEntry.Text with
+            | null | "" -> false
+            | _ -> true
+    )
+
+    do this.DeleteEvent.AddHandler (fun o e ->
         Application.Quit()
         e.RetVal <- true
-
-    do btnClearLog.Clicked.AddHandler (fun o e -> OnClearLogButtonClickedEvent o e)
-
-    do this.SetDefaultSize(400,300)
-    do this.DeleteEvent.AddHandler (fun o e -> OnDeleteEvent o e)
+    )
 
     do this.ShowAll()
 
