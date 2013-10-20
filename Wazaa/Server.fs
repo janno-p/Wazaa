@@ -16,6 +16,7 @@ let pattern = @"^(?<method>GET|POST)\s+\/?(?<path>.*?)(\s+HTTP\/1\.[01])$"
 let DefaultPortNumber = 2345
 
 let mutable logger = new ConsoleLogger() :> ILogger
+let mutable sharedFolder = null:string
 
 let ParsePair (c:char) (pair:string) =
     let breakAt = pair.IndexOf(c)
@@ -66,10 +67,9 @@ let RunServerAsync (server:TcpListener) = async {
     | :? SocketException -> logger.Warning "Server stopped."
 }
 
-let HttpServer (ip, port) : TcpListener =
-    let server = new TcpListener(IPAddress.Parse(ip), port)
+let HttpServer (localEndPoint:IPEndPoint) : TcpListener =
+    let server = new TcpListener(localEndPoint)
     server.Start()
     logger.Info "Server started."
-    logger.Info (sprintf "Listening incoming connections on port %d..." port)
+    logger.Info (sprintf "Listening incoming connections on port %d..." localEndPoint.Port)
     server
-    //Async.Start (runServer server)
