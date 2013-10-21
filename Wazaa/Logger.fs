@@ -13,3 +13,5 @@ type ConsoleLogger() =
             printfn "%s" message
         member this.Error message =
             printfn "%s" message
+
+let mutable GlobalLogger = new ConsoleLogger() :> ILogger

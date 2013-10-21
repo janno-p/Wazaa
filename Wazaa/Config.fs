@@ -2,17 +2,30 @@
 
 open System
 open System.Configuration
+open System.IO
 open System.Net
 open System.Net.NetworkInformation
 open System.Net.Sockets
+open System.Reflection
+open Newtonsoft.Json
 
 let mutable SharedFolderPath =
     let userDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
     System.IO.Path.Combine(userDirectory, "wazaa")
 
-let KnownPeers = []:list<IPEndPoint>
+let KnownPeers =
+    let rootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    let path = Path.Combine(rootPath, "Data", "machines.txt")
+    if File.Exists(path) then
+        use reader = new StreamReader(path)
+        match JsonConvert.DeserializeObject(reader.ReadToEnd()) with
+        | :? Linq.JArray as arr ->
+            for x in arr do
+                printfn "%O" x
+        | _ -> ()
+    []:list<IPEndPoint>
 
-let ReadServerConfiguration () =
+let LocalEndPoint =
     let host = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
                      |> Seq.filter (fun x -> match x.OperationalStatus with | OperationalStatus.Up -> true | _ -> false)
                      |> Seq.collect (fun x -> x.GetIPProperties().UnicastAddresses)

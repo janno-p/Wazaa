@@ -15,8 +15,6 @@ let pattern = @"^(?<method>GET|POST)\s+\/?(?<path>.*?)(\s+HTTP\/1\.[01])$"
 
 let DefaultPortNumber = 2345
 
-let mutable logger = new ConsoleLogger() :> ILogger
-
 let ParsePair (c:char) (pair:string) =
     let breakAt = pair.IndexOf(c)
     if breakAt < 0 then
@@ -42,39 +40,44 @@ let (|Path|_|) request =
         Some (m.Groups.["method"].Value.ToUpper(), path, queryParams)
     else None
 
-let HandleSearchFile (query:Map<string,string>) =
-    logger.Info (sprintf "TODO: Search File: %O" query)
-    async {
-        let fileName = query.["filename"]
-        let directory = new DirectoryInfo(Config.SharedFolderPath)
-        let files = directory.EnumerateFiles()
-                    |> Seq.filter (fun x -> x.Name.Contains(fileName))
-                    |> Seq.map (fun x -> x.Name)
-                    |> Seq.toList
-        if not (Seq.isEmpty files) then
-            let port =
-                let mutable i = 0
-                match Int32.TryParse(query.["sendport"], &i) with | true -> i | false -> 0
-            let mutable address = null:IPAddress
-            match IPAddress.TryParse(query.["sendip"], &address) with
-            | true ->  Client.FoundFile (new IPEndPoint(address, port)) files
-            | false -> ()
-        let ttl =
-            let mutable i = 0
-            match Int32.TryParse(query.["ttl"], &i) with | true -> i | false -> 0
-        if ttl > 1 then
-            Client.SearchFile Config.KnownPeers query |> ignore
-    }
+let RespondFiles (directory:DirectoryInfo) (param:SearchFileParams) =
+    let files = directory.EnumerateFiles()
+                |> Seq.filter (fun x -> x.Name.Contains(param.FileName))
+                |> Seq.map (fun x -> x.Name)
+                |> Seq.toList
+    if not (Seq.isEmpty files) then
+        Client.FoundFile param.EndPoint files
 
-let serveClient (client:TcpClient) = async {
+let ForwardSearchRequest (param:SearchFileParams) =
+    param.TimeToLive <- param.TimeToLive - 1
+    if not (param.NoAsk |> List.exists (fun x -> x.Equals(Config.LocalEndPoint.Address))) then
+        param.NoAsk <- List.append param.NoAsk [Config.LocalEndPoint.Address]
+    let peers = Config.KnownPeers
+                |> Seq.filter (fun x -> not (param.NoAsk |> List.exists (fun y -> y.Equals(x.Address))))
+                |> Seq.toList
+    Client.SearchFile peers param
+
+let HandleSearchFile (param:SearchFileParams) = async {
+    match param.IsValid() with
+    | true ->
+        let directory = new DirectoryInfo(Config.SharedFolderPath)
+        if directory.Exists then
+            RespondFiles directory param
+        if param.TimeToLive > 1 then
+            ForwardSearchRequest param
+    | false -> ()
+}
+
+let ServeClient (client:TcpClient) = async {
     use stream = client.GetStream()
     use reader = new StreamReader(stream)
     let request = reader.ReadLine()
+    GlobalLogger.Info (sprintf "#IN# (%O) %s" client.Client.RemoteEndPoint request)
     match request with
-        | Path ("GET", "getfile", query) -> logger.Info (sprintf "TODO: Get File: %O" query)
-        | Path ("GET", "searchfile", query) -> do! HandleSearchFile query
-        | Path ("POST", "foundfile", query) -> logger.Info (sprintf "TODO: Found File: %O" query)
-        | _ -> logger.Warning "not ok"
+        | Path ("GET", "getfile", query) -> GlobalLogger.Info (sprintf "TODO: Get File: %O" query)
+        | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileParams.Parse(query))
+        | Path ("POST", "foundfile", query) -> GlobalLogger.Info (sprintf "TODO: Found File: %O" query)
+        | _ -> GlobalLogger.Warning "not ok"
     do! stream.AsyncWrite(headers)
     do! stream.AsyncWrite(content)
     stream.Close()
@@ -84,15 +87,14 @@ let RunServerAsync (server:TcpListener) = async {
     try
         while true do
             let client = server.AcceptTcpClient()
-            logger.Info (sprintf "New client: %O" client.Client.RemoteEndPoint)
-            Async.Start(serveClient client)
+            Async.Start(ServeClient client)
     with
-    | :? SocketException -> logger.Warning "Server stopped."
+    | :? SocketException -> GlobalLogger.Warning "Server stopped."
 }
 
 let HttpServer (localEndPoint:IPEndPoint) : TcpListener =
     let server = new TcpListener(localEndPoint)
     server.Start()
-    logger.Info (sprintf "Server started on host %O." localEndPoint.Address)
-    logger.Info (sprintf "Listening incoming connections on port %d..." localEndPoint.Port)
+    GlobalLogger.Info (sprintf "Server started on host %O." localEndPoint.Address)
+    GlobalLogger.Info (sprintf "Listening incoming connections on port %d..." localEndPoint.Port)
     server

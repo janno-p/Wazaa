@@ -5,19 +5,19 @@ open System.Configuration
 open System.Net
 open System.Threading
 open Gtk
-open Wazaa
+open Wazaa.Config
+open Wazaa.Logger
+open Wazaa.Server
 
 [<EntryPoint>]
 let Main(args) =
     Application.Init()
 
-    let localEndPoint = Config.ReadServerConfiguration()
-
     let window = new MainWindow.MyWindow()
-    Server.logger <- window
+    GlobalLogger <- window
 
-    let server = Server.HttpServer(localEndPoint)
-    server |> Server.RunServerAsync |> Async.Start
+    let server = HttpServer(LocalEndPoint)
+    server |> RunServerAsync |> Async.Start
 
     window.Show()
     Application.Run()

@@ -7,9 +7,7 @@ open Wazaa
 
 [<EntryPoint>]
 let main args = 
-    let localEndPoint = Wazaa.Config.ReadServerConfiguration()
-
-    let server = Server.HttpServer(localEndPoint)
+    let server = Server.HttpServer(Config.LocalEndPoint)
     printfn "Press [CTRL+C] to shut down the server!"
 
     Console.CancelKeyPress.AddHandler (fun o e ->
