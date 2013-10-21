@@ -12,15 +12,11 @@ let windowTitle =
     let fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location)
     sprintf "Wazaa v. %s" fileVersionInfo.FileVersion
 
-let defaultWazaaDirectory =
-    let userDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-    System.IO.Path.Combine(userDirectory, "wazaa")
-
 type MyWindow() as this =
     inherit Window(windowTitle)
 
     let mutable portNumber = Wazaa.Server.DefaultPortNumber
-    let mutable sharedFolder = defaultWazaaDirectory
+    let mutable sharedFolder = Wazaa.Config.SharedFolderPath
 
     let btnClearLog = new Button(Label="Clear Log")
 
