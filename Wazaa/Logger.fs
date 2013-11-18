@@ -5,13 +5,11 @@ type ILogger =
     abstract member Warning : string -> unit
     abstract member Error : string -> unit
 
-type ConsoleLogger() =
-    interface ILogger with
+let mutable GlobalLogger =
+    { new ILogger with
         member this.Info message =
             printfn "%s" message
         member this.Warning message =
             printfn "%s" message
         member this.Error message =
-            printfn "%s" message
-
-let mutable GlobalLogger = new ConsoleLogger() :> ILogger
+            printfn "%s" message }

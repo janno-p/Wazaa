@@ -44,13 +44,15 @@
     <None Include="App.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Data\machines.txt">
+    <None Include="machines.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <HintPath>\opt\mono-3\lib\mono\4.5\FSharp.Core.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="gtk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
@@ -63,8 +65,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wazaa\Wazaa.fsproj">
       <Name>Wazaa</Name>
-      <Project>{accedf4e-95dd-42bf-aaec-d2133da6f3d6}</Project>
-      <Private>True</Private>
+      <Project>{ACCEDF4E-95DD-42BF-AAEC-D2133DA6F3D6}</Project>
     </ProjectReference>
   </ItemGroup>
 </Project>
