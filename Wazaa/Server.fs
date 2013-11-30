@@ -53,7 +53,7 @@ let ForwardSearchRequest (param:SearchFileParams) =
     if not (param.NoAsk |> List.exists (fun x -> x.Equals(Config.LocalEndPoint.Address))) then
         param.NoAsk <- List.append param.NoAsk [Config.LocalEndPoint.Address]
     let peers = Config.KnownPeers
-                |> Seq.filter (fun x -> not (param.NoAsk |> List.exists (fun y -> y.Equals(x.Address))))
+                |> Seq.filter (fun x -> not (param.NoAsk |> List.exists (fun y -> y.Equals(x.Host))))
                 |> Seq.toList
     Client.SearchFile peers param
 

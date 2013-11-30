@@ -4,20 +4,21 @@ open System
 open System.Net
 open System.Net.Sockets
 open System.Text
+open Wazaa.Config
 open Wazaa.Logger
 
 type SearchFileArgs = { FileName:string; IPAddress:string; Port:int }
 
 let DefaultTimeToLive = 5
 
-let SearchFile (peers:seq<IPEndPoint>) (param:SearchFileParams) =
+let SearchFile (peers : Peer list) (param:SearchFileParams) =
     let message = (sprintf "GET /searchfile?%s HTTP/1.0\r\n\r\n" (param.ToString()))
     let buffer = Encoding.ASCII.GetBytes(message)
     peers
     |> Seq.map (fun peer -> async {
         GlobalLogger.Info (sprintf "#OUT# (%O) %s" peer message)
         use client = new TcpClient()
-        client.Connect(peer)
+        client.Connect(peer.Host, peer.Port)
         use stream = client.GetStream()
         stream.Write(buffer, 0, buffer.Length)
         stream.Close() })

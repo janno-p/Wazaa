@@ -12,7 +12,7 @@ open FSharp.Data.Json.Extensions
 
 let (@@) x y = Path.Combine(x, y)
 
-type PeerInfo = {
+type Peer = {
     Host: string
     Port: int
 }
@@ -22,12 +22,12 @@ let mutable SharedFolderPath =
 
 let KnownPeers =
     let rootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    let path = rootPath @@ "Data" @@ "machines.txt"
+    let path = rootPath @@ "machines.txt"
     if File.Exists(path) then
         let data = JsonValue.Load(path)
         [ for peer in data -> { Host = peer.[0].AsString(); Port = peer.[1].AsInteger() } ]
     else
-        []:list<PeerInfo>
+        [] : Peer list
 
 let LocalEndPoint =
     let host =
