@@ -1,5 +1,6 @@
 module Wazaa.Gui.MainWindow
 
+(*
 open System
 open System.Diagnostics
 open System.Reflection
@@ -147,3 +148,4 @@ type MyWindow() as this =
             Gtk.Application.Invoke(fun sender args -> AppendToServerLog message "warning")
         member this.Error message =
             Gtk.Application.Invoke(fun sender args -> AppendToServerLog message "error")
+*)
