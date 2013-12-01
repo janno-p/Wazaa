@@ -11,14 +11,14 @@ type SearchFileArgs = { FileName:string; IPAddress:string; Port:int }
 
 let DefaultTimeToLive = 5
 
-let SearchFile (peers : Peer list) (param:SearchFileParams) =
+let SearchFile (peers : IPEndPoint list) (param:SearchFileParams) =
     let message = (sprintf "GET /searchfile?%s HTTP/1.0\r\n\r\n" (param.ToString()))
     let buffer = Encoding.ASCII.GetBytes(message)
     peers
     |> Seq.map (fun peer -> async {
         GlobalLogger.Info (sprintf "#OUT# (%O) %s" peer message)
         use client = new TcpClient()
-        client.Connect(peer.Host, peer.Port)
+        client.Connect(peer)
         use stream = client.GetStream()
         stream.Write(buffer, 0, buffer.Length)
         stream.Close() })

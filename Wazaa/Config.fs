@@ -12,22 +12,50 @@ open FSharp.Data.Json.Extensions
 
 let (@@) x y = Path.Combine(x, y)
 
-type Peer = {
-    Host: string
-    Port: int
-}
-
 let mutable SharedFolderPath =
-    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) @@ "wazaa"
+    match ConfigurationManager.AppSettings.["shared_path"] with
+    | null | "" -> Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) @@ "wazaa"
+    | path -> path
 
-let KnownPeers =
+let Parse conversionFunc value =
+    try
+        Some (conversionFunc value)
+    with
+        _ -> None
+
+let ParseIPAddress = Parse IPAddress.Parse
+let ParseInt = Parse Int32.Parse
+
+let ParsePort value =
+    match value with
+    | JsonValue.String p -> ParseInt p
+    | JsonValue.Number p -> Some (int p)
+    | _ -> None
+
+let ParseIPAddressAndPort data =
+    match data with
+    | [|JsonValue.String a; _|] -> match ParseIPAddress(a) with
+                                   | Some address -> match ParsePort(data.[1]) with
+                                                     | Some port -> Some (new IPEndPoint(address, port))
+                                                     | _ -> None
+                                   | _ -> None
+    | _ -> None
+
+let ParseIPEndPoint data =
+    match data with
+    | JsonValue.Array arr -> ParseIPAddressAndPort(arr)
+    | _ -> None
+
+let KnownPeers : IPEndPoint list =
     let rootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let path = rootPath @@ "machines.txt"
     if File.Exists(path) then
         let data = JsonValue.Load(path)
-        [ for peer in data -> { Host = peer.[0].AsString(); Port = peer.[1].AsInteger() } ]
+        match data with
+        | JsonValue.Array arr -> arr |> Seq.choose ParseIPEndPoint |> Seq.toList
+        | _ -> []
     else
-        [] : Peer list
+        []
 
 let LocalEndPoint =
     let host =
@@ -46,8 +74,8 @@ let LocalEndPoint =
             |> Seq.filter (fun x -> match x.AddressFamily with | AddressFamily.InterNetwork -> true | _ -> false)
             |> Seq.head
 
-    let mutable port = 0
-    if not (Int32.TryParse(ConfigurationManager.AppSettings.["port"], &port)) then
-        port <- 0
+    let port = match ParseInt ConfigurationManager.AppSettings.["port"] with
+               | Some port -> port
+               | _ -> 0
 
     new IPEndPoint(host, port)
