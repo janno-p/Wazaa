@@ -19,6 +19,7 @@ type LogControl() as this =
         | true -> this.Invoke (new MethodInvoker(fun x -> func())) |> ignore
         | _ -> func()
 
+    do this.Dock <- DockStyle.Fill
     do this.Controls.Add(logTextView)
 
     interface ILogger with

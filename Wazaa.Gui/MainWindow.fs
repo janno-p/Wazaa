@@ -8,11 +8,6 @@ open Gdk;
 open Gtk;
 open Wazaa.Logger
 
-let windowTitle =
-    let assembly = Assembly.GetExecutingAssembly()
-    let fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location)
-    sprintf "Wazaa v. %s" fileVersionInfo.FileVersion
-
 type MyWindow() as this =
     inherit Window(windowTitle)
 
@@ -74,33 +69,7 @@ type MyWindow() as this =
         vbox.PackStart(swin, true, true, 5u)
         frame
 
-    let configurationSection =
-        let expander = new Expander("Configuration")
-        let vbox = new VBox(BorderWidth=10u)
-        let customizationFrame = new Frame("Application customization")
-        vbox.PackStart(customizationFrame, false, true, 3u)
-        let portLabel = new Label("Port number: ")
-        portLabel.Justify <- Justification.Right
-        let folderLabel = new Label("Shared folder: ")
-        folderLabel.Justify <- Justification.Right
-        let customizationTable =
-            let table = new Table(2u, 3u, false, ColumnSpacing=5u, RowSpacing=5u, BorderWidth=10u)
-            table.Attach(portLabel, 0u, 1u, 0u, 1u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
-            table.Attach(portNumberEntry, 1u, 2u, 0u, 1u)
-            table.Attach(folderLabel, 0u, 1u, 1u, 2u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
-            let hboxSharedFolder = new HBox()
-            hboxSharedFolder.PackStart(sharedFolderEntry, true, true, 0u)
-            hboxSharedFolder.PackEnd(selectSharedFolderButton, false, false, 0u)
-            table.Attach(hboxSharedFolder, 1u, 2u, 1u, 2u)
-            let hboxButton = new HBox()
-            hboxButton.PackEnd(saveConfigurationButton, false, false, 0u)
-            table.Attach(hboxButton, 1u, 2u, 2u, 3u)
-            table
-        customizationFrame.Add(customizationTable)
-        let knownPeersFrame = new Frame("Known peers")
-        vbox.PackStart(knownPeersFrame, false, true, 3u)
-        expander.Add(vbox)
-        expander
+    
 
     let mainContainer =
         let vbox = new VBox()
@@ -109,10 +78,6 @@ type MyWindow() as this =
         vbox.PackStart(configurationSection, false, true, 3u)
         this.Add(vbox)
         vbox
-
-    let regularTabColor = new Gdk.Color(0uy, 0uy, 0uy)
-    let noticeTabColor = new Gdk.Color(0uy, 127uy, 0uy)
-    let errorTabColor = new Gdk.Color(127uy, 0uy, 0uy)
 
     do this.SetDefaultSize(400, 300)
 
@@ -127,25 +92,5 @@ type MyWindow() as this =
             | _ -> true
     )
 
-    do this.DeleteEvent.AddHandler (fun o e ->
-        Application.Quit()
-        e.RetVal <- true
-    )
-
-    do this.ShowAll()
-
-    let AppendToServerLog message (tag:string) =
-        let mutable endIter = txtServerLog.Buffer.EndIter
-        txtServerLog.Buffer.InsertWithTagsByName(&endIter, message + Environment.NewLine, tag)
-        txtServerLog.ScrollToIter(endIter, 0.0, false, 0.0, 0.0) |> ignore
-
     member val PortNumber = portNumber with get, set
-
-    interface ILogger with
-        member this.Info message =
-            Gtk.Application.Invoke(fun sender args -> AppendToServerLog message "info")
-        member this.Warning message =
-            Gtk.Application.Invoke(fun sender args -> AppendToServerLog message "warning")
-        member this.Error message =
-            Gtk.Application.Invoke(fun sender args -> AppendToServerLog message "error")
 *)

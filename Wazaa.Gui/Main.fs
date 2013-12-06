@@ -12,6 +12,7 @@ let Main(args) =
     let server = HttpServer(LocalEndPoint)
     server |> RunServerAsync |> Async.Start
 
+    Application.EnableVisualStyles()
     Application.Run(form)
 
     0
