@@ -84,12 +84,21 @@ let ServeClient (client:TcpClient) = async {
 }
 
 let RunServerAsync (server:TcpListener) = async {
+    let isCancelled = ref false
+    use! c = Async.OnCancel(fun () ->
+                isCancelled := true
+                server.Stop()
+                GlobalLogger.Warning "Server stopped."
+                )
     try
         while true do
             let client = server.AcceptTcpClient()
             Async.Start(ServeClient client)
     with
-    | :? SocketException -> GlobalLogger.Warning "Server stopped."
+    | :? SocketException as e ->
+        match !isCancelled with
+        | true -> ()
+        | _ -> GlobalLogger.Error (sprintf "Error occured in listener: %O" e)
 }
 
 let HttpServer (localEndPoint:IPEndPoint) : TcpListener =

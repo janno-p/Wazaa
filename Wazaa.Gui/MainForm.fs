@@ -1,6 +1,7 @@
 ﻿module Wazaa.Gui.MainForm
 
 open System.Diagnostics
+open System.Drawing
 open System.Reflection
 open System.Windows.Forms
 open Wazaa.Logger
@@ -25,11 +26,31 @@ type MainForm() as form =
     let configurationTabPage = new TabPage("Configuration")
     let peersTabPage = new TabPage("Peers")
 
+    let createLayout () =
+        let layout = new TableLayoutPanel(ColumnCount = 3, RowCount = 1, Dock = DockStyle.Fill)
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50.0f)) |> ignore
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300.0f)) |> ignore
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50.0f)) |> ignore
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100.0f)) |> ignore
+        layout
+
+    let configurationControl =
+        let layout = createLayout()
+        let control = new ConfigurationControl()
+        layout.Controls.Add(control, 1, 0)
+        configurationTabPage.Controls.Add(layout)
+        control
+
+    let peersControl =
+        let layout = createLayout()
+        let control = new PeerControl()
+        layout.Controls.Add(control, 1, 0)
+        peersTabPage.Controls.Add(layout)
+        control
+
     do GlobalLogger <- logControl
 
     do logTabPage.Controls.Add(logControl)
-    do configurationTabPage.Controls.Add(configurationControl)
-    do peersTabPage.Controls.Add(peersControl)
 
     do [logTabPage; configurationTabPage; peersTabPage] |> Seq.iter tabControl.TabPages.Add
 
@@ -37,3 +58,5 @@ type MainForm() as form =
 
     do form.Text <- formTitle
     do form.Controls.Add(splitContainer)
+
+    member this.Configuration = configurationControl

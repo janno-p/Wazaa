@@ -7,7 +7,7 @@ open Wazaa.Logger
 type LogControl() as this =
     inherit UserControl()
 
-    let logTextView = new RichTextBox(Enabled = false, WordWrap = true, Dock = DockStyle.Fill)
+    let logTextView = new RichTextBox(ReadOnly = true, WordWrap = true, Dock = DockStyle.Fill)
 
     let appendText color message =
         logTextView.SelectionColor <- color

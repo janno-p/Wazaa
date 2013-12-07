@@ -7,41 +7,37 @@ open Wazaa.Config
 type ConfigurationControl() as this =
     inherit UserControl()
 
+    let portChangedEvent = new Event<_>()
+
     let portLabel = new Label(Text = "Port: ", TextAlign = ContentAlignment.MiddleRight)
-    let portTextBox = new TextBox(Text = LocalEndPoint.Port.ToString())
+
+    let portTextBox =
+        let textBox = new TextBox(Text = LocalEndPoint.Port.ToString())
+        textBox.Leave.AddHandler (fun sender args ->
+            match Wazaa.Config.ParseUShort textBox.Text with
+            | Some num -> portChangedEvent.Trigger(int num)
+            | None ->
+                match MessageBox.Show("Invalid port number. Do you want to revert changes.", "", MessageBoxButtons.YesNo) with
+                | DialogResult.Yes -> textBox.Text <- LocalEndPoint.Port.ToString()
+                | _ -> textBox.Focus() |> ignore
+            )
+        textBox
 
     let sharedPathLabel = new Label(Text = "Shared path: ", TextAlign = ContentAlignment.MiddleRight)
-    let sharedPathTextBox = new TextBox(Text = SharedFolderPath)
+    let sharedPathTextBox = new TextBox(Text = SharedFolderPath, Dock = DockStyle.Fill)
 
-    let x = new FlowLayoutPanel(Dock = DockStyle.Fill)
-    do [portLabel :> Control; portTextBox :> Control; sharedPathLabel :> Control; sharedPathTextBox :> Control] |> Seq.iter x.Controls.Add
+    let layout =
+        let layout = new TableLayoutPanel(ColumnCount = 2, RowCount = 3, Dock = DockStyle.Fill)
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100.0f)) |> ignore
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100.0f)) |> ignore
+        layout.Controls.Add(portLabel, 0, 0)
+        layout.Controls.Add(portTextBox, 1, 0)
+        layout.Controls.Add(sharedPathLabel, 0, 1)
+        layout.Controls.Add(sharedPathTextBox, 1, 1)
+        this.Controls.Add(layout)
+        layout
 
-    do this.Controls.Add(x)
     do this.Dock <- DockStyle.Fill
 
-
-(*
-let configurationSection =
-        let expander = new Expander("Configuration")
-        let vbox = new VBox(BorderWidth=10u)
-        let customizationFrame = new Frame("Application customization")
-        vbox.PackStart(customizationFrame, false, true, 3u)
-        let customizationTable =
-            let table = new Table(2u, 3u, false, ColumnSpacing=5u, RowSpacing=5u, BorderWidth=10u)
-            table.Attach(portLabel, 0u, 1u, 0u, 1u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
-            table.Attach(portNumberEntry, 1u, 2u, 0u, 1u)
-            table.Attach(folderLabel, 0u, 1u, 1u, 2u, AttachOptions.Shrink, AttachOptions.Shrink, 5u, 5u)
-            let hboxSharedFolder = new HBox()
-            hboxSharedFolder.PackStart(sharedFolderEntry, true, true, 0u)
-            hboxSharedFolder.PackEnd(selectSharedFolderButton, false, false, 0u)
-            table.Attach(hboxSharedFolder, 1u, 2u, 1u, 2u)
-            let hboxButton = new HBox()
-            hboxButton.PackEnd(saveConfigurationButton, false, false, 0u)
-            table.Attach(hboxButton, 1u, 2u, 2u, 3u)
-            table
-        customizationFrame.Add(customizationTable)
-        let knownPeersFrame = new Frame("Known peers")
-        vbox.PackStart(knownPeersFrame, false, true, 3u)
-        expander.Add(vbox)
-        expander
-*)
+    [<CLIEvent>]
+    member this.PortChanged = portChangedEvent.Publish

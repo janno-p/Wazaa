@@ -25,18 +25,20 @@ let Parse conversionFunc value =
 
 let ParseIPAddress = Parse IPAddress.Parse
 let ParseInt = Parse Int32.Parse
+let ParseUShort = Parse UInt16.Parse
+let ConvertUShort = Parse (Convert.ToUInt16 : decimal -> uint16)
 
 let ParsePort value =
     match value with
-    | JsonValue.String p -> ParseInt p
-    | JsonValue.Number p -> Some (int p)
+    | JsonValue.String p -> ParseUShort p
+    | JsonValue.Number p -> ConvertUShort p
     | _ -> None
 
 let ParseIPAddressAndPort data =
     match data with
     | [|JsonValue.String a; _|] -> match ParseIPAddress(a) with
                                    | Some address -> match ParsePort(data.[1]) with
-                                                     | Some port -> Some (new IPEndPoint(address, port))
+                                                     | Some port -> Some (new IPEndPoint(address, (int port)))
                                                      | _ -> None
                                    | _ -> None
     | _ -> None
@@ -79,3 +81,10 @@ let LocalEndPoint =
                | _ -> 0
 
     new IPEndPoint(host, port)
+
+let UpdatePortNumber port =
+    let configuration = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None)
+    configuration.AppSettings.Settings.["port"].Value <- port.ToString()
+    configuration.Save()
+    ConfigurationManager.RefreshSection("appSettings")
+    LocalEndPoint.Port <- port
