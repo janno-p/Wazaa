@@ -8,6 +8,7 @@ open Wazaa.Logger
 open Wazaa.Gui.ConfigurationControl
 open Wazaa.Gui.LogControl
 open Wazaa.Gui.PeerControl
+open Wazaa.Gui.SearchControl
 
 let formTitle =
     let assembly = Assembly.GetExecutingAssembly()
@@ -17,11 +18,9 @@ let formTitle =
 type MainForm() as form =
     inherit Form()
 
-    let logControl = new LogControl()
+    let searchControl = new SearchControl()
     let configurationControl = new ConfigurationControl()
     let peersControl = new PeerControl()
-    let splitContainer = new SplitContainer(Orientation = Orientation.Horizontal, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, SplitterWidth = 1)
-    let tabControl = new TabControl(Dock = DockStyle.Fill)
     let logTabPage = new TabPage("Log")
     let configurationTabPage = new TabPage("Configuration")
     let peersTabPage = new TabPage("Peers")
@@ -48,15 +47,30 @@ type MainForm() as form =
         peersTabPage.Controls.Add(layout)
         control
 
-    do GlobalLogger <- logControl
+    let logControl =
+        let control = new LogControl()
+        logTabPage.Controls.Add(control)
+        GlobalLogger <- control
+        control
 
-    do logTabPage.Controls.Add(logControl)
+    let tabControl =
+        let tabControl = new TabControl(Dock = DockStyle.Fill)
+        [logTabPage; configurationTabPage; peersTabPage] |> Seq.iter tabControl.TabPages.Add
+        tabControl
 
-    do [logTabPage; configurationTabPage; peersTabPage] |> Seq.iter tabControl.TabPages.Add
+    do
+        form.Text <- formTitle
+        form.MinimumSize <- new Size(380, 500)
 
-    do splitContainer.Panel2.Controls.Add(tabControl)
+        let container = new SplitContainer(Orientation = Orientation.Horizontal,
+                                           Dock = DockStyle.Fill,
+                                           BorderStyle = BorderStyle.FixedSingle,
+                                           FixedPanel = FixedPanel.Panel2,
+                                           SplitterWidth = 1)
+        container.Panel1.Controls.Add(searchControl)
+        container.Panel2.Controls.Add(tabControl)
 
-    do form.Text <- formTitle
-    do form.Controls.Add(splitContainer)
+        form.Controls.Add(container)
+        container.SplitterDistance <- 275
 
     member this.Configuration = configurationControl

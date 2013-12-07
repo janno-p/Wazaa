@@ -57,49 +57,46 @@ let ForwardSearchRequest (param:SearchFileParams) =
                 |> Seq.toList
     Client.SearchFile peers param
 
-let HandleSearchFile (param:SearchFileParams) = async {
-    match param.IsValid() with
-    | true ->
-        let directory = new DirectoryInfo(Config.SharedFolderPath)
-        if directory.Exists then
-            RespondFiles directory param
-        if param.TimeToLive > 1 then
-            ForwardSearchRequest param
-    | false -> ()
-}
+let HandleSearchFile (param:SearchFileParams) =
+    async { match param.IsValid() with
+            | true ->
+                let directory = new DirectoryInfo(Config.SharedFolderPath)
+                if directory.Exists then
+                    RespondFiles directory param
+                if param.TimeToLive > 1 then
+                    ForwardSearchRequest param
+            | false -> () }
 
-let ServeClient (client:TcpClient) = async {
-    use stream = client.GetStream()
-    use reader = new StreamReader(stream)
-    let request = reader.ReadLine()
-    GlobalLogger.Info (sprintf "#IN# (%O) %s" client.Client.RemoteEndPoint request)
-    match request with
-        | Path ("GET", "getfile", query) -> GlobalLogger.Info (sprintf "TODO: Get File: %O" query)
-        | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileParams.Parse(query))
-        | Path ("POST", "foundfile", query) -> GlobalLogger.Info (sprintf "TODO: Found File: %O" query)
-        | _ -> GlobalLogger.Warning "not ok"
-    do! stream.AsyncWrite(headers)
-    do! stream.AsyncWrite(content)
-    stream.Close()
-}
+let ServeClient (client:TcpClient) =
+    async { use stream = client.GetStream()
+            use reader = new StreamReader(stream)
+            let request = reader.ReadLine()
+            GlobalLogger.Info (sprintf "#IN# (%O) %s" client.Client.RemoteEndPoint request)
+            match request with
+                | Path ("GET", "getfile", query) -> GlobalLogger.Info (sprintf "TODO: Get File: %O" query)
+                | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileParams.Parse(query))
+                | Path ("POST", "foundfile", query) -> GlobalLogger.Info (sprintf "TODO: Found File: %O" query)
+                | _ -> GlobalLogger.Warning "not ok"
+            do! stream.AsyncWrite(headers)
+            do! stream.AsyncWrite(content)
+            stream.Close() }
 
-let RunServerAsync (server:TcpListener) = async {
-    let isCancelled = ref false
-    use! c = Async.OnCancel(fun () ->
-                isCancelled := true
-                server.Stop()
-                GlobalLogger.Warning "Server stopped."
-                )
-    try
-        while true do
-            let client = server.AcceptTcpClient()
-            Async.Start(ServeClient client)
-    with
-    | :? SocketException as e ->
-        match !isCancelled with
-        | true -> ()
-        | _ -> GlobalLogger.Error (sprintf "Error occured in listener: %O" e)
-}
+let RunServerAsync (server:TcpListener) =
+    async { let isCancelled = ref false
+            use! c = Async.OnCancel(fun () ->
+                        isCancelled := true
+                        server.Stop()
+                        GlobalLogger.Warning "Server stopped."
+                        )
+            try
+                while true do
+                    let client = server.AcceptTcpClient()
+                    Async.Start(ServeClient client)
+            with
+            | :? SocketException as e ->
+                match !isCancelled with
+                | true -> ()
+                | _ -> GlobalLogger.Error (sprintf "Error occured in listener: %O" e) }
 
 let HttpServer (localEndPoint:IPEndPoint) : TcpListener =
     let server = new TcpListener(localEndPoint)

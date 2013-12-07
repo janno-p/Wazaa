@@ -42,7 +42,7 @@
     <Compile Include="LogControl.fs" />
     <Compile Include="ConfigurationControl.fs" />
     <Compile Include="PeerControl.fs" />
-    <Compile Include="MainWindow.fs" />
+    <Compile Include="SearchControl.fs" />
     <Compile Include="MainForm.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config">

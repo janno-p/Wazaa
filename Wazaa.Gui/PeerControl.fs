@@ -30,7 +30,7 @@ type PeerControl() as this =
         listView.View <- View.Details
         listView.FullRowSelect <- true
         listView.HideSelection <- false
-        [ "IP Address"; "Port" ] |> Seq.iter (fun str -> listView.Columns.Add(str, Width = -1) |> ignore)
+        [ "IP Address"; "Port" ] |> Seq.iter (fun str -> listView.Columns.Add(str, -1) |> ignore)
         listView.SelectedIndexChanged.AddHandler (fun sender args ->
             let enabled = listView.SelectedItems.Count > 0
             [editButton; removeButton] |> Seq.iter (fun btn -> btn.Enabled <- enabled)
