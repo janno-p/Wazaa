@@ -23,11 +23,19 @@ let Parse conversionFunc value =
     with
         _ -> None
 
+let ConvertOrDefault func def value =
+    match (Parse func value) with
+    | Some x -> x
+    | None -> def
+
 let ParseIPAddress = Parse IPAddress.Parse
 let ParseInt = Parse Int32.Parse
 let ParseUShort = Parse UInt16.Parse
+
 let ConvertUShort = Parse (Convert.ToUInt16 : decimal -> uint16)
-let ConvertInt32ToUInt16 value = match Parse (Convert.ToUInt16 : int32 -> uint16) value with | Some n -> n | _ -> 0us
+let ConvertInt32ToUInt16 = ConvertOrDefault (Convert.ToUInt16 : int32 -> uint16) 0us
+let ConvertToInt = ConvertOrDefault (Convert.ToInt32 : string -> int32) 0
+let ConvertToUShort = ConvertOrDefault (Convert.ToUInt16 : string -> uint16) 0us
 
 let ParsePort value =
     match value with

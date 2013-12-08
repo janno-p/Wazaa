@@ -9,6 +9,13 @@ open Wazaa.Logger
 
 let DefaultTimeToLive = 5
 
+let (?) (a : Map<string,string>) (b : string) =
+    let key = b.ToLower()
+    match a.ContainsKey(key) with
+    | true -> a.[key]
+    | _ -> ""
+
+
 type SearchFileArgs =
     { Name : string
       SendIP : string
@@ -16,6 +23,7 @@ type SearchFileArgs =
       TimeToLive : int
       Id : string
       NoAsk : string }
+
     override this.ToString() =
         [ ("name", (WebUtility.UrlEncode this.Name))
           ("sendip", this.SendIP)
@@ -26,12 +34,22 @@ type SearchFileArgs =
         |> Seq.choose (fun pair -> match String.IsNullOrEmpty(snd pair) with | true -> None | false -> Some pair)
         |> Seq.map (fun pair -> sprintf "%s=%s" (fst pair) (snd pair))
         |> String.concat "&"
+
     member this.AreValid() =
         match (String.IsNullOrEmpty(this.Name), ParseIPAddress(this.SendIP), this.SendPort) with
         | (true, _, _) | (_, None, _) | (_, _, 0us) -> false
         | _ -> true
+
+    member this.NoAskList = this.NoAsk.Split('_') |> Seq.choose ParseIPAddress |> Seq.map (fun a -> a.ToString())
+
     static member Parse (query : Map<string,string>) =
-        { Name = ""; SendIP = ""; SendPort = 0us; TimeToLive = 0; Id = ""; NoAsk = "" }
+        { Name = query?Name
+          SendIP = query?SendIP
+          SendPort = ConvertToUShort query?sendport
+          TimeToLive = ConvertToInt query?ttl
+          Id = query?id
+          NoAsk = query?noask }
+
 
 let SendRequest buffer peer =
     use client = new TcpClient()

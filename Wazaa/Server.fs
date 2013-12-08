@@ -51,12 +51,17 @@ let RespondFiles (directory:DirectoryInfo) (args : SearchFileArgs) =
     ()
 
 let ForwardSearchRequest (args : SearchFileArgs) =
-//    if not (param.NoAsk |> List.exists (fun x -> x.Equals(Config.LocalEndPoint.Address))) then
-//        param.NoAsk <- List.append param.NoAsk [Config.LocalEndPoint.Address]
+    let address = Config.LocalEndPoint.Address.ToString()
+    let noAskList =
+        match args.NoAskList |> Seq.exists (fun x -> x.Equals(address)) with
+        | true -> args.NoAskList
+        | false -> args.NoAskList |> Seq.append [address]
     let peers = Config.KnownPeers
-                //|> Seq.filter (fun x -> not (args.NoAsk |> List.exists (fun y -> y.Equals(x.Address.ToString()))))
+                |> Seq.filter (fun peer -> not (noAskList |> Seq.exists (fun adr -> adr.Equals(peer.Address.ToString()))))
                 |> Seq.toList
-    Client.SearchFile peers { args with TimeToLive = args.TimeToLive - 1 }
+    Client.SearchFile peers { args with
+                                TimeToLive = args.TimeToLive - 1
+                                NoAsk = noAskList |> String.concat "_" }
 
 let HandleSearchFile (args : SearchFileArgs) =
     async { match args.AreValid() with

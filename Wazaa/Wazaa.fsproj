@@ -42,7 +42,6 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Logger.fs" />
-    <Compile Include="SearchFile.fs" />
     <Compile Include="Client.fs" />
     <Compile Include="Server.fs" />
     <None Include="packages.config" />
