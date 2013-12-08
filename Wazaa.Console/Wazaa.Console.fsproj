@@ -40,6 +40,10 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
+    <Content Include="..\machines.txt">
+      <Link>machines.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

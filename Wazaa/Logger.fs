@@ -8,8 +8,8 @@ type ILogger =
 let mutable GlobalLogger =
     { new ILogger with
         member this.Info message =
-            printfn "%s" message
+            lock this (fun () -> printfn "%s" message)
         member this.Warning message =
-            printfn "%s" message
+            lock this (fun () -> printfn "%s" message)
         member this.Error message =
-            printfn "%s" message }
+            lock this (fun () -> printfn "%s" message) }

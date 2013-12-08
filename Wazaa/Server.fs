@@ -41,14 +41,14 @@ let (|Path|_|) request =
         Some (m.Groups.["method"].Value.ToUpper(), path, queryParams)
     else None
 
-let RespondFiles (directory:DirectoryInfo) (args : SearchFileArgs) =
+let RespondFiles (directory : DirectoryInfo) (args : SearchFileArgs) =
     let files = directory.EnumerateFiles()
-                //|> Seq.filter (fun x -> x.Name.Contains(param.FileName))
-                |> Seq.map (fun x -> x.Name)
+                |> Seq.map (fun file -> file.Name)
+                |> Seq.filter (fun fileName -> fileName.Contains(args.Name))
                 |> Seq.toList
-//    if not (Seq.isEmpty files) then
-//        Client.FoundFile args.EndPoint files
-    ()
+    match files with
+    | [] -> ()
+    | files -> Client.FoundFile args files
 
 let ForwardSearchRequest (args : SearchFileArgs) =
     let address = Config.LocalEndPoint.Address.ToString()
@@ -58,6 +58,7 @@ let ForwardSearchRequest (args : SearchFileArgs) =
         | false -> args.NoAskList |> Seq.append [address]
     let peers = Config.KnownPeers
                 |> Seq.filter (fun peer -> not (noAskList |> Seq.exists (fun adr -> adr.Equals(peer.Address.ToString()))))
+                |> Seq.filter (fun peer -> not (peer.Address = Config.LocalEndPoint.Address && peer.Port = Config.LocalEndPoint.Port))
                 |> Seq.toList
     Client.SearchFile peers { args with
                                 TimeToLive = args.TimeToLive - 1
