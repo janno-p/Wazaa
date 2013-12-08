@@ -12,7 +12,7 @@ let Main(args) =
 
     let tokenSource = ref (new CancellationTokenSource())
     let server = ref (HttpServer(LocalEndPoint))
-    Async.Start(!server |> RunServerAsync, (!tokenSource).Token)
+    Async.Start(!server |> RunServerAsync form.Search, (!tokenSource).Token)
 
     form.Configuration.PortChanged.AddHandler(fun sender port ->
         (!tokenSource).Cancel()
@@ -20,7 +20,7 @@ let Main(args) =
         LocalEndPoint.Port <- port
         tokenSource := new CancellationTokenSource()
         server := HttpServer(LocalEndPoint)
-        Async.Start(!server |> RunServerAsync, (!tokenSource).Token)
+        Async.Start(!server |> RunServerAsync form.Search, (!tokenSource).Token)
         )
 
     Application.EnableVisualStyles()

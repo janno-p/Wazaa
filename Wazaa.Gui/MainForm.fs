@@ -9,6 +9,7 @@ open Wazaa.Gui.ConfigurationControl
 open Wazaa.Gui.LogControl
 open Wazaa.Gui.PeerControl
 open Wazaa.Gui.SearchControl
+open Wazaa.Server
 
 let formTitle =
     let assembly = Assembly.GetExecutingAssembly()
@@ -74,3 +75,4 @@ type MainForm() as form =
         container.SplitterDistance <- 275
 
     member this.Configuration = configurationControl
+    member this.Search = searchControl

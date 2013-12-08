@@ -1,5 +1,6 @@
 module Wazaa.Server
 
+open FSharp.Data.Json
 open System
 open System.IO
 open System.Net
@@ -7,6 +8,7 @@ open System.Net.Sockets
 open System.Text
 open System.Text.RegularExpressions
 open Wazaa.Client
+open Wazaa.Config
 open Wazaa.Logger
 
 let headers = Encoding.ASCII.GetBytes("HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Length: 1\r\nServer: Wazaa/0.0.1\r\n\r\n")
@@ -15,6 +17,9 @@ let content = Encoding.UTF8.GetBytes("0")
 let pattern = @"^(?<method>GET|POST)\s+\/?(?<path>.*?)(\s+HTTP\/1\.[01])$"
 
 let DefaultPortNumber = 2345
+
+type IMessageListener =
+    abstract member FilesFound : (string * string * string) list -> unit
 
 let ParsePair (c:char) (pair:string) =
     let breakAt = pair.IndexOf(c)
@@ -74,21 +79,69 @@ let HandleSearchFile (args : SearchFileArgs) =
                     ForwardSearchRequest args
             | false -> () }
 
-let ServeClient (client:TcpClient) =
+let rec ReadHeader (reader : StreamReader) =
+    let line = reader.ReadLine()
+    match line with
+    | "" -> []
+    | x -> let values = ReadHeader reader
+           match x.Split([| ':' |], 2) with
+           | [| key; value |] -> (key.ToLower().Trim(), value.Trim()) :: values
+           | _ -> values
+
+let (?) (header : (string * string) list) key =
+    match header |> Seq.tryFind (fun x -> (fst x) = key) with
+    | Some (_, value) -> value
+    | _ -> ""
+
+let ReadContent (reader : StreamReader) length (encoding : Encoding) =
+    seq { match length with
+          | length when length > 0 ->
+              let buffer = Array.create length 0uy
+              match JsonValue.Load(reader) with
+              | JsonValue.Object o ->
+                  if o.ContainsKey("files") then
+                      match o.["files"] with
+                      | JsonValue.Array arr ->
+                          for item in arr do
+                              match item with
+                              | JsonValue.Object file ->
+                                  if file.ContainsKey("ip") && file.ContainsKey("port") && file.ContainsKey("name") then
+                                      let ip = match file.["ip"] with | JsonValue.String s -> s | _ -> ""
+                                      let port = match file.["port"] with | JsonValue.String s -> s | _ -> ""
+                                      let name = match file.["name"] with | JsonValue.String s -> s | _ -> ""
+                                      yield (ip, port, name)
+                              | _ -> ()
+                      | _ -> ()
+              | _ -> ()
+          | _ -> () }
+
+let ReadFileList (reader : StreamReader) (listener : IMessageListener) =
+    let header = ReadHeader reader
+    let charset = header?``content-type``.Split([| ';' |])
+                  |> Seq.map (fun x -> x.Trim().Split([| '=' |], 2))
+                  |> Seq.tryFind (fun x -> x.[0].Trim().ToLower() = "charset")
+    let encoding = match charset with
+                   | Some [| _; enc |] -> Encoding.GetEncoding(enc)
+                   | _ -> Encoding.UTF8
+    ReadContent reader (ConvertToInt header?``content-length``) encoding
+    |> Seq.toList
+    |> listener.FilesFound
+
+let ServeClient (client : TcpClient) listener =
     async { use stream = client.GetStream()
             use reader = new StreamReader(stream)
             let request = reader.ReadLine()
             GlobalLogger.Info (sprintf "#IN# (%O) %s" client.Client.RemoteEndPoint request)
             match request with
-                | Path ("GET", "getfile", query) -> GlobalLogger.Info (sprintf "TODO: Get File: %O" query)
-                | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileArgs.Parse query)
-                | Path ("POST", "foundfile", query) -> GlobalLogger.Info (sprintf "TODO: Found File: %O" query)
-                | _ -> GlobalLogger.Warning "not ok"
-            do! stream.AsyncWrite(headers)
-            do! stream.AsyncWrite(content)
+            | Path ("GET", "getfile", query) -> GlobalLogger.Info (sprintf "TODO: Get File: %O" query)
+            | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileArgs.Parse query)
+            | Path ("POST", "foundfile", query) -> ReadFileList reader listener
+            | _ -> GlobalLogger.Warning "not ok"
+            stream.Write(headers, 0, headers.Length)
+            stream.Write(content, 0, content.Length)
             stream.Close() }
 
-let RunServerAsync (server:TcpListener) =
+let RunServerAsync listener (server : TcpListener) =
     async { let isCancelled = ref false
             use! c = Async.OnCancel(fun () ->
                         isCancelled := true
@@ -98,14 +151,14 @@ let RunServerAsync (server:TcpListener) =
             try
                 while true do
                     let client = server.AcceptTcpClient()
-                    Async.Start(ServeClient client)
+                    Async.Start(ServeClient client listener)
             with
             | :? SocketException as e ->
                 match !isCancelled with
                 | true -> ()
                 | _ -> GlobalLogger.Error (sprintf "Error occured in listener: %O" e) }
 
-let HttpServer (localEndPoint:IPEndPoint) : TcpListener =
+let HttpServer (localEndPoint : IPEndPoint) =
     let server = new TcpListener(localEndPoint)
     server.Start()
     GlobalLogger.Info (sprintf "Server started on host %O." localEndPoint.Address)

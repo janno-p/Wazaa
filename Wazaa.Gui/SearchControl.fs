@@ -4,6 +4,7 @@ open System.Drawing
 open System.Windows.Forms
 open Wazaa.Client
 open Wazaa.Config
+open Wazaa.Server
 
 type SearchControl() as this =
     inherit UserControl()
@@ -47,6 +48,9 @@ type SearchControl() as this =
         this.Controls.Add(panel)
 
         searchButton.Click.AddHandler(fun sender args ->
+            resultListView.Items.Clear()
+            resultListView.Enabled <- false
+            resultListView.Items.Add("<No results>") |> ignore
             SearchFile KnownPeers { Name = searchTextBox.Text
                                     SendIP = LocalEndPoint.Address.ToString()
                                     SendPort = (ConvertInt32ToUInt16 LocalEndPoint.Port)
@@ -55,3 +59,29 @@ type SearchControl() as this =
                                     NoAsk = "" })
 
     do this.Dock <- DockStyle.Fill
+
+    let threadSafe func =
+        match this.InvokeRequired with
+        | true -> this.Invoke (new MethodInvoker(fun x -> func())) |> ignore
+        | _ -> func()
+
+    let appendItems (files : (string * string * string) list) =
+        if not resultListView.Enabled then
+            resultListView.Items.Clear()
+        files
+        |> Seq.filter (fun x -> let _, _, fileName = x
+                                searchTextBox.TextLength > 0 && (fileName.Contains(searchTextBox.Text)))
+        |> Seq.choose (fun x -> let ip, port, file = x
+                                match (ParseIPAddress(ip), ParseUShort(port)) with
+                                | (Some adr, Some port) -> Some (ip, port, file)
+                                | _ -> None)
+        |> Seq.iter (fun x -> let adr, port, file = x
+                              if not ([ for i in resultListView.Items -> i.Tag :?> (string * uint16 * string) ] |> Seq.exists (fun t -> t = x)) then
+                                  resultListView.Items.Add(new ListViewItem([| file; adr; port.ToString() |], Tag = x)) |> ignore)
+        if resultListView.Items.Count > 0 then
+            resultListView.Enabled <- true
+        else
+            resultListView.Items.Add("<No results>") |> ignore
+
+    interface IMessageListener with
+        member this.FilesFound files = threadSafe (fun () -> appendItems files)

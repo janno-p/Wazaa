@@ -4,6 +4,7 @@ open System
 open System.Configuration
 open System.Threading
 open Wazaa
+open Wazaa.Server
 
 [<EntryPoint>]
 let main args = 
@@ -15,7 +16,9 @@ let main args =
         printfn "Server shut down."
     )
 
-    server |> Server.RunServerAsync |> Async.RunSynchronously
+    let listener = { new IMessageListener with member this.FilesFound arg = () }
+
+    server |> Server.RunServerAsync listener |> Async.RunSynchronously
     server.Stop()
 
     0
