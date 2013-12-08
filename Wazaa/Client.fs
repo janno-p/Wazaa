@@ -7,22 +7,51 @@ open System.Text
 open Wazaa.Config
 open Wazaa.Logger
 
-type SearchFileArgs = { FileName:string; IPAddress:string; Port:int }
-
 let DefaultTimeToLive = 5
 
-let SearchFile (peers : IPEndPoint list) (param:SearchFileParams) =
-    let message = (sprintf "GET /searchfile?%s HTTP/1.0\r\n\r\n" (param.ToString()))
+type SearchFileArgs =
+    { Name : string
+      SendIP : string
+      SendPort : uint16
+      TimeToLive : int
+      Id : string
+      NoAsk : string }
+    override this.ToString() =
+        [ ("name", (WebUtility.UrlEncode this.Name))
+          ("sendip", this.SendIP)
+          ("sendport", this.SendPort.ToString())
+          ("ttl", this.TimeToLive.ToString())
+          ("id", this.Id)
+          ("noask", this.NoAsk) ]
+        |> Seq.choose (fun pair -> match String.IsNullOrEmpty(snd pair) with | true -> None | false -> Some pair)
+        |> Seq.map (fun pair -> sprintf "%s=%s" (fst pair) (snd pair))
+        |> String.concat "&"
+    member this.AreValid() =
+        match (String.IsNullOrEmpty(this.Name), ParseIPAddress(this.SendIP), this.SendPort) with
+        | (true, _, _) | (_, None, _) | (_, _, 0us) -> false
+        | _ -> true
+    static member Parse (query : Map<string,string>) =
+        { Name = ""; SendIP = ""; SendPort = 0us; TimeToLive = 0; Id = ""; NoAsk = "" }
+
+let SendRequest buffer peer =
+    use client = new TcpClient()
+    try
+        client.Connect(peer)
+        use stream = client.GetStream()
+        stream.Write(buffer, 0, buffer.Length)
+        stream.Close()
+    with e -> GlobalLogger.Error (sprintf "#OUT# (%O) %s" peer e.Message)
+
+let SearchFile (peers : IPEndPoint list) (args : SearchFileArgs) =
+    GlobalLogger.Info (args.ToString())
+    let message = (sprintf "GET /searchfile?%s HTTP/1.0\r\n\r\n" (args.ToString()))
     let buffer = Encoding.ASCII.GetBytes(message)
     peers
     |> Seq.map (fun peer -> async {
         GlobalLogger.Info (sprintf "#OUT# (%O) %s" peer message)
-        use client = new TcpClient()
-        client.Connect(peer)
-        use stream = client.GetStream()
-        stream.Write(buffer, 0, buffer.Length)
-        stream.Close() })
+        SendRequest buffer peer })
     |> Seq.iter Async.Start
+    |> ignore
 
 let GetFile (peer:IPEndPoint) (fileName:string) =
     async {

@@ -6,6 +6,7 @@ open System.Net
 open System.Net.Sockets
 open System.Text
 open System.Text.RegularExpressions
+open Wazaa.Client
 open Wazaa.Logger
 
 let headers = Encoding.ASCII.GetBytes("HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Length: 1\r\nServer: Wazaa/0.0.1\r\n\r\n")
@@ -40,31 +41,31 @@ let (|Path|_|) request =
         Some (m.Groups.["method"].Value.ToUpper(), path, queryParams)
     else None
 
-let RespondFiles (directory:DirectoryInfo) (param:SearchFileParams) =
+let RespondFiles (directory:DirectoryInfo) (args : SearchFileArgs) =
     let files = directory.EnumerateFiles()
-                |> Seq.filter (fun x -> x.Name.Contains(param.FileName))
+                //|> Seq.filter (fun x -> x.Name.Contains(param.FileName))
                 |> Seq.map (fun x -> x.Name)
                 |> Seq.toList
-    if not (Seq.isEmpty files) then
-        Client.FoundFile param.EndPoint files
+//    if not (Seq.isEmpty files) then
+//        Client.FoundFile args.EndPoint files
+    ()
 
-let ForwardSearchRequest (param:SearchFileParams) =
-    param.TimeToLive <- param.TimeToLive - 1
-    if not (param.NoAsk |> List.exists (fun x -> x.Equals(Config.LocalEndPoint.Address))) then
-        param.NoAsk <- List.append param.NoAsk [Config.LocalEndPoint.Address]
+let ForwardSearchRequest (args : SearchFileArgs) =
+//    if not (param.NoAsk |> List.exists (fun x -> x.Equals(Config.LocalEndPoint.Address))) then
+//        param.NoAsk <- List.append param.NoAsk [Config.LocalEndPoint.Address]
     let peers = Config.KnownPeers
-                |> Seq.filter (fun x -> not (param.NoAsk |> List.exists (fun y -> y.Equals(x.Address.ToString()))))
+                //|> Seq.filter (fun x -> not (args.NoAsk |> List.exists (fun y -> y.Equals(x.Address.ToString()))))
                 |> Seq.toList
-    Client.SearchFile peers param
+    Client.SearchFile peers { args with TimeToLive = args.TimeToLive - 1 }
 
-let HandleSearchFile (param:SearchFileParams) =
-    async { match param.IsValid() with
+let HandleSearchFile (args : SearchFileArgs) =
+    async { match args.AreValid() with
             | true ->
                 let directory = new DirectoryInfo(Config.SharedFolderPath)
                 if directory.Exists then
-                    RespondFiles directory param
-                if param.TimeToLive > 1 then
-                    ForwardSearchRequest param
+                    RespondFiles directory args
+                if args.TimeToLive > 1 then
+                    ForwardSearchRequest args
             | false -> () }
 
 let ServeClient (client:TcpClient) =
@@ -74,7 +75,7 @@ let ServeClient (client:TcpClient) =
             GlobalLogger.Info (sprintf "#IN# (%O) %s" client.Client.RemoteEndPoint request)
             match request with
                 | Path ("GET", "getfile", query) -> GlobalLogger.Info (sprintf "TODO: Get File: %O" query)
-                | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileParams.Parse(query))
+                | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileArgs.Parse query)
                 | Path ("POST", "foundfile", query) -> GlobalLogger.Info (sprintf "TODO: Found File: %O" query)
                 | _ -> GlobalLogger.Warning "not ok"
             do! stream.AsyncWrite(headers)

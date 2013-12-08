@@ -2,6 +2,8 @@
 
 open System.Drawing
 open System.Windows.Forms
+open Wazaa.Client
+open Wazaa.Config
 
 type SearchControl() as this =
     inherit UserControl()
@@ -15,9 +17,8 @@ type SearchControl() as this =
 
     let searchTextBox =
         let textBox = new TextBox(Dock = DockStyle.Fill)
-        textBox.TextChanged.AddHandler(fun sender args ->
-            searchButton.Enabled <- textBox.Text |> String.length > 0
-            )
+        textBox.TextChanged.AddHandler(fun sender args -> searchButton.Enabled <- textBox.Text |> String.length > 0)
+        textBox.KeyDown.AddHandler(fun sender args -> match args.KeyCode with | Keys.Enter -> searchButton.PerformClick() | _ -> ())
         textBox
 
     let resultListView = 
@@ -44,5 +45,13 @@ type SearchControl() as this =
         panel.Controls.Add(resultListView)
         panel.SetColumnSpan(resultListView, 3)
         this.Controls.Add(panel)
+
+        searchButton.Click.AddHandler(fun sender args ->
+            SearchFile KnownPeers { Name = searchTextBox.Text
+                                    SendIP = LocalEndPoint.Address.ToString()
+                                    SendPort = (ConvertInt32ToUInt16 LocalEndPoint.Port)
+                                    TimeToLive = DefaultTimeToLive
+                                    Id = ""
+                                    NoAsk = "" })
 
     do this.Dock <- DockStyle.Fill

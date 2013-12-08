@@ -27,6 +27,7 @@ let ParseIPAddress = Parse IPAddress.Parse
 let ParseInt = Parse Int32.Parse
 let ParseUShort = Parse UInt16.Parse
 let ConvertUShort = Parse (Convert.ToUInt16 : decimal -> uint16)
+let ConvertInt32ToUInt16 value = match Parse (Convert.ToUInt16 : int32 -> uint16) value with | Some n -> n | _ -> 0us
 
 let ParsePort value =
     match value with
