@@ -112,6 +112,7 @@ let WriteFileContent (response : HttpListenerResponse) (fileInfo : FileInfo) =
         | true -> ContentTypes.[fileInfo.Extension]
         | _ -> "application/octet-stream"
     response.ContentLength64 <- fileInfo.Length
+    response.Headers.Add("Content-Disposition", sprintf @"inline; filename=""%s""" fileInfo.Name)
     use stream = fileInfo.OpenRead()
     CopyStream stream response.OutputStream
 
