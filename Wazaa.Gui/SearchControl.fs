@@ -1,6 +1,7 @@
 ﻿module Wazaa.Gui.SearchControl
 
 open System.Drawing
+open System.IO
 open System.Windows.Forms
 open Wazaa.Client
 open Wazaa.Config
@@ -27,10 +28,20 @@ type SearchControl() as this =
                                     MultiSelect = false,
                                     FullRowSelect = true,
                                     HideSelection = false,
-                                    View = View.Details)
-        [ "File Name"; "IP Address"; "Port" ] |> Seq.iter (fun str -> listView.Columns.Add(str, -1) |> ignore)
+                                    View = View.Details,
+                                    Enabled = false)
+        listView.Columns.Add("File Name", 180) |> ignore
+        listView.Columns.Add("IP Address", 120) |> ignore
+        listView.Columns.Add("Port", 50) |> ignore
         listView.Items.Add("<No results>") |> ignore
-        listView.Enabled <- false
+        listView.DoubleClick.AddHandler(fun sender args ->
+            let file = listView.SelectedItems.[0].Tag :?> FileRecord
+            let dialog = new SaveFileDialog()
+            dialog.FileName <- file.Name
+            dialog.Filter <- "All Files (*.*)|*.*"
+            match dialog.ShowDialog() with
+            | DialogResult.OK -> GetFile file (new FileInfo(dialog.FileName))
+            | _ -> ())
         listView
 
     do
@@ -65,19 +76,13 @@ type SearchControl() as this =
         | true -> this.Invoke (new MethodInvoker(fun x -> func())) |> ignore
         | _ -> func()
 
-    let appendItems (files : (string * string * string) list) =
+    let appendItems (files : FileRecord list) =
         if not resultListView.Enabled then
             resultListView.Items.Clear()
         files
-        |> Seq.filter (fun x -> let _, _, fileName = x
-                                searchTextBox.TextLength > 0 && (fileName.Contains(searchTextBox.Text)))
-        |> Seq.choose (fun x -> let ip, port, file = x
-                                match (ParseIPAddress(ip), ParseUShort(port)) with
-                                | (Some adr, Some port) -> Some (ip, port, file)
-                                | _ -> None)
-        |> Seq.iter (fun x -> let adr, port, file = x
-                              if not ([ for i in resultListView.Items -> i.Tag :?> (string * uint16 * string) ] |> Seq.exists (fun t -> t = x)) then
-                                  resultListView.Items.Add(new ListViewItem([| file; adr; port.ToString() |], Tag = x)) |> ignore)
+        |> Seq.filter (fun x -> searchTextBox.TextLength > 0 && (x.Name.Contains(searchTextBox.Text)))
+        |> Seq.iter (fun x -> if not ([ for i in resultListView.Items -> i.Tag :?> FileRecord ] |> Seq.exists (fun t -> t = x)) then
+                                  resultListView.Items.Add(new ListViewItem([| x.Name; x.Owner.Address.ToString(); x.Owner.Port.ToString() |], Tag = x)) |> ignore)
         if resultListView.Items.Count > 0 then
             resultListView.Enabled <- true
         else

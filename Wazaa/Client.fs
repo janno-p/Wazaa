@@ -1,6 +1,8 @@
 module Wazaa.Client
 
 open System
+open System.Collections.Specialized
+open System.IO
 open System.Net
 open System.Net.Sockets
 open System.Text
@@ -9,11 +11,13 @@ open Wazaa.Logger
 
 let DefaultTimeToLive = 5
 
-let (?) (a : Map<string,string>) (b : string) =
-    let key = b.ToLower()
-    match a.ContainsKey(key) with
-    | true -> a.[key]
-    | _ -> ""
+let (?) (a : NameValueCollection) (b : string) =
+    match a.[b] with
+    | null -> ""
+    | x -> x
+
+type FileRecord = { Name : string
+                    Owner : IPEndPoint }
 
 
 type SearchFileArgs =
@@ -42,7 +46,7 @@ type SearchFileArgs =
 
     member this.NoAskList = this.NoAsk.Split('_') |> Seq.choose ParseIPAddress |> Seq.map (fun a -> a.ToString())
 
-    static member Parse (query : Map<string,string>) =
+    static member FromQuery (query : NameValueCollection) =
         { Name = query?Name
           SendIP = query?SendIP
           SendPort = ConvertToUShort query?sendport
@@ -70,39 +74,54 @@ let SearchFile (peers : IPEndPoint list) (args : SearchFileArgs) =
     |> Seq.iter Async.Start
     |> ignore
 
-let GetFile (peer:IPEndPoint) (fileName:string) =
+let CopyStream (input : Stream) (output : Stream) =
+    let rec InnerCopyStream buffer (input : Stream) (output : Stream) =
+        match input.Read(buffer, 0, buffer.Length) with
+        | x when x < 1 -> ()
+        | x -> output.Write(buffer, 0, x)
+               InnerCopyStream buffer input output
+    let buffer = Array.create 4096 0uy
+    InnerCopyStream buffer input output
+
+let GetFile (record : FileRecord) (fileInfo : FileInfo) =
     async {
-        use client = new TcpClient()
-        client.Connect(peer)
+        let message = (sprintf "GET /getfile?fullname=%s HTTP/1.0\r\n\r\n" (WebUtility.UrlEncode record.Name))
+        GlobalLogger.Info (sprintf "#OUT# (%O) %s" record.Owner message)
 
-        use stream = client.GetStream()
-        let encodedFileName = WebUtility.UrlEncode(fileName)
-        let message = (sprintf "GET /getfile?fullname=%s HTTP/1.0\r\n\r\n" encodedFileName)
-        let buffer = Encoding.ASCII.GetBytes(message)
-        stream.Write(buffer, 0, buffer.Length)
+        let url = (sprintf "http://%s:%d/getfile?fullname=%s" (record.Owner.Address.ToString()) record.Owner.Port record.Name)
+        let request = WebRequest.Create(url)
+        request.Method <- "GET"
 
-        // TODO : Read response content
+        use response = request.GetResponse()
+        use stream = response.GetResponseStream()
+
+        use fileStream = fileInfo.OpenWrite()
+        CopyStream stream fileStream
+
+        stream.Close()
     } |> Async.Start
 
 let FoundFileContent args files =
-    seq { let address = LocalEndPoint.Address.ToString()
-          let port = LocalEndPoint.Port
-          yield sprintf @"{ ""id"":""%s""," args.Id
-          yield @"  ""files"":"
-          yield "  ["
-          yield files |> Seq.map (sprintf @"    {""ip"":""%s"", ""port"":""%d"", ""name"":""%s""}" address port) |> String.concat ("," + Environment.NewLine)
-          yield "  ]"
-          yield "}" }
+    seq {
+        let address = LocalEndPoint.Address.ToString()
+        let port = LocalEndPoint.Port
+        yield sprintf @"{ ""id"":""%s""," args.Id
+        yield @"  ""files"":"
+        yield "  ["
+        yield files |> Seq.map (sprintf @"    {""ip"":""%s"", ""port"":""%d"", ""name"":""%s""}" address port) |> String.concat ("," + Environment.NewLine)
+        yield "  ]"
+        yield "}" }
     |> String.concat Environment.NewLine
 
 let FoundFile (args : SearchFileArgs) (files : seq<string>) =
-    async { let peer = match ParseIPAddress(args.SendIP) with
-                       | Some adr -> new IPEndPoint(adr, int args.SendPort)
-                       | _ -> failwith "Invalid IP address."
-            let content = FoundFileContent args files
-            let contentBuffer = Encoding.UTF8.GetBytes(content)
-            let header = sprintf "POST /foundfile HTTP/1.0\r\nContent-Type: application/json; charset=UTF-8\r\nContent-Length: %d\r\nServer: Wazaa/0.0.1\r\n\r\n" contentBuffer.Length
-            let headerBuffer = Encoding.ASCII.GetBytes(header)
-            GlobalLogger.Info (sprintf "#OUT# (%O) %s" peer (header + content))
-            SendRequest (Array.concat [ headerBuffer; contentBuffer ]) peer }
+    async {
+        let peer = match ParseIPAddress(args.SendIP) with
+                   | Some adr -> new IPEndPoint(adr, int args.SendPort)
+                   | _ -> failwith "Invalid IP address."
+        let content = FoundFileContent args files
+        let contentBuffer = Encoding.UTF8.GetBytes(content)
+        let header = sprintf "POST /foundfile HTTP/1.0\r\nContent-Type: application/json; charset=UTF-8\r\nContent-Length: %d\r\nServer: Wazaa/0.0.1\r\n\r\n" contentBuffer.Length
+        let headerBuffer = Encoding.ASCII.GetBytes(header)
+        GlobalLogger.Info (sprintf "#OUT# (%O) %s" peer (header + content))
+        SendRequest (Array.concat [ headerBuffer; contentBuffer ]) peer }
     |> Async.Start

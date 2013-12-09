@@ -2,6 +2,7 @@ module Wazaa.Server
 
 open FSharp.Data.Json
 open System
+open System.Collections.Generic
 open System.IO
 open System.Net
 open System.Net.Sockets
@@ -11,40 +12,10 @@ open Wazaa.Client
 open Wazaa.Config
 open Wazaa.Logger
 
-let headers = Encoding.ASCII.GetBytes("HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Length: 1\r\nServer: Wazaa/0.0.1\r\n\r\n")
-let content = Encoding.UTF8.GetBytes("0")
-
-let pattern = @"^(?<method>GET|POST)\s+\/?(?<path>.*?)(\s+HTTP\/1\.[01])$"
-
 let DefaultPortNumber = 2345
 
 type IMessageListener =
-    abstract member FilesFound : (string * string * string) list -> unit
-
-let ParsePair (c:char) (pair:string) =
-    let breakAt = pair.IndexOf(c)
-    if breakAt < 0 then
-        (WebUtility.UrlDecode(pair), "")
-    else
-        (WebUtility.UrlDecode(pair.Substring(0, breakAt)), WebUtility.UrlDecode(pair.Substring(breakAt + 1)))
-
-let ParseQueryParams (query:string) =
-    if String.IsNullOrEmpty(query) then
-        Map.empty
-    else
-        query.Split('&') |> Seq.map (ParsePair '=') |> Map.ofSeq
-
-let (|Path|_|) request =
-    let input =
-        match request with
-            | null -> ""
-            | _ -> request
-    let m = Regex.Match(input, pattern, RegexOptions.IgnoreCase)
-    if m.Success then
-        let (path, query) = ParsePair '?' m.Groups.["path"].Value
-        let queryParams = ParseQueryParams query
-        Some (m.Groups.["method"].Value.ToUpper(), path, queryParams)
-    else None
+    abstract member FilesFound : FileRecord list -> unit
 
 let RespondFiles (directory : DirectoryInfo) (args : SearchFileArgs) =
     let files = directory.EnumerateFiles()
@@ -70,97 +41,137 @@ let ForwardSearchRequest (args : SearchFileArgs) =
                                 NoAsk = noAskList |> String.concat "_" }
 
 let HandleSearchFile (args : SearchFileArgs) =
-    async { match args.AreValid() with
-            | true ->
-                let directory = new DirectoryInfo(Config.SharedFolderPath)
-                if directory.Exists then
-                    RespondFiles directory args
-                if args.TimeToLive > 1 then
-                    ForwardSearchRequest args
-            | false -> () }
+    if args.AreValid() then
+        let directory = new DirectoryInfo(Config.SharedFolderPath)
+        if directory.Exists then
+            RespondFiles directory args
+        if args.TimeToLive > 1 then
+            ForwardSearchRequest args
 
-let rec ReadHeader (reader : StreamReader) =
-    let line = reader.ReadLine()
-    match line with
-    | "" -> []
-    | x -> let values = ReadHeader reader
-           match x.Split([| ':' |], 2) with
-           | [| key; value |] -> (key.ToLower().Trim(), value.Trim()) :: values
-           | _ -> values
+let ReadContent (stream : Stream) =
+    seq {
+        match JsonValue.Load(stream) with
+        | JsonValue.Object o ->
+            if o.ContainsKey("files") then
+                match o.["files"] with
+                | JsonValue.Array arr ->
+                    for item in arr do
+                        match item with
+                        | JsonValue.Object file ->
+                            if file.ContainsKey("ip") && file.ContainsKey("port") && file.ContainsKey("name") then
+                                let ip = match file.["ip"] with | JsonValue.String s -> s | _ -> ""
+                                let port = match file.["port"] with | JsonValue.String s -> s | _ -> ""
+                                let name = match file.["name"] with | JsonValue.String s -> s | _ -> ""
+                                yield (ip, port, name)
+                        | _ -> ()
+                | _ -> ()
+        | _ -> ()
+    }
 
-let (?) (header : (string * string) list) key =
-    match header |> Seq.tryFind (fun x -> (fst x) = key) with
-    | Some (_, value) -> value
-    | _ -> ""
-
-let ReadContent (reader : StreamReader) length (encoding : Encoding) =
-    seq { match length with
-          | length when length > 0 ->
-              let buffer = Array.create length 0uy
-              match JsonValue.Load(reader) with
-              | JsonValue.Object o ->
-                  if o.ContainsKey("files") then
-                      match o.["files"] with
-                      | JsonValue.Array arr ->
-                          for item in arr do
-                              match item with
-                              | JsonValue.Object file ->
-                                  if file.ContainsKey("ip") && file.ContainsKey("port") && file.ContainsKey("name") then
-                                      let ip = match file.["ip"] with | JsonValue.String s -> s | _ -> ""
-                                      let port = match file.["port"] with | JsonValue.String s -> s | _ -> ""
-                                      let name = match file.["name"] with | JsonValue.String s -> s | _ -> ""
-                                      yield (ip, port, name)
-                              | _ -> ()
-                      | _ -> ()
-              | _ -> ()
-          | _ -> () }
-
-let ReadFileList (reader : StreamReader) (listener : IMessageListener) =
-    let header = ReadHeader reader
-    let charset = header?``content-type``.Split([| ';' |])
-                  |> Seq.map (fun x -> x.Trim().Split([| '=' |], 2))
-                  |> Seq.tryFind (fun x -> x.[0].Trim().ToLower() = "charset")
-    let encoding = match charset with
-                   | Some [| _; enc |] -> Encoding.GetEncoding(enc)
-                   | _ -> Encoding.UTF8
-    ReadContent reader (ConvertToInt header?``content-length``) encoding
+let ReadFileList (request : HttpListenerRequest) (listener : IMessageListener) =
+    ReadContent request.InputStream
+    |> Seq.map (fun x -> let adr, port, name = x
+                         match (ParseIPAddress adr, ParseUShort port) with
+                         | Some adr, Some port -> Some { Name = name; Owner = new IPEndPoint(adr, int port) }
+                         | _ -> None)
+    |> Seq.choose (fun x -> x)
     |> Seq.toList
     |> listener.FilesFound
 
-let ServeClient (client : TcpClient) listener =
-    async { use stream = client.GetStream()
-            use reader = new StreamReader(stream)
-            let request = reader.ReadLine()
-            GlobalLogger.Info (sprintf "#IN# (%O) %s" client.Client.RemoteEndPoint request)
-            match request with
-            | Path ("GET", "getfile", query) -> GlobalLogger.Info (sprintf "TODO: Get File: %O" query)
-            | Path ("GET", "searchfile", query) -> do! HandleSearchFile (SearchFileArgs.Parse query)
-            | Path ("POST", "foundfile", query) -> ReadFileList reader listener
-            | _ -> GlobalLogger.Warning "not ok"
-            stream.Write(headers, 0, headers.Length)
-            stream.Write(content, 0, content.Length)
-            stream.Close() }
+let WriteWazaaCode (response : HttpListenerResponse) code =
+    let buffer = Encoding.ASCII.GetBytes(code.ToString())
+    response.ContentLength64 <- buffer.LongLength
+    response.OutputStream.Write(buffer, 0, buffer.Length)
 
-let RunServerAsync listener (server : TcpListener) =
-    async { let isCancelled = ref false
-            use! c = Async.OnCancel(fun () ->
-                        isCancelled := true
-                        server.Stop()
-                        GlobalLogger.Warning "Server stopped."
-                        )
-            try
-                while true do
-                    let client = server.AcceptTcpClient()
-                    Async.Start(ServeClient client listener)
-            with
-            | :? SocketException as e ->
-                match !isCancelled with
-                | true -> ()
-                | _ -> GlobalLogger.Error (sprintf "Error occured in listener: %O" e) }
+let GetFileInfo (request : HttpListenerRequest) =
+    let fileName = request.QueryString?fullname
+    match fileName |> String.IsNullOrEmpty with
+    | false -> 
+        match new FileInfo(SharedFolderPath @@ fileName) with
+        | file when file.Exists -> Some file
+        | _ -> None
+    | _ -> None
 
-let HttpServer (localEndPoint : IPEndPoint) =
-    let server = new TcpListener(localEndPoint)
-    server.Start()
-    GlobalLogger.Info (sprintf "Server started on host %O." localEndPoint.Address)
-    GlobalLogger.Info (sprintf "Listening incoming connections on port %d..." localEndPoint.Port)
-    server
+let ContentTypes =
+    [ ("jpg", "image/jpeg")
+      ("jpeg", "image/jpeg")
+      ("png", "image/png; charset=binary")
+      ("gif", "image/gif")
+      ("pdf", "application/pdf")
+      ("xml", "text/xml")
+      ("mp4", "video/mp4")
+      ("mp3", "audio/mpeg")
+      ("html", "text/html")
+      ("txt", "text/plain") ]
+    |> Seq.fold (fun (dict : Dictionary<string,string>) x -> dict.Add(fst x, snd x); dict) (new Dictionary<string,string>())
+    :> IDictionary<string,string>
+
+let WriteFileContent (response : HttpListenerResponse) (fileInfo : FileInfo) =
+    response.ContentType <-
+        match ContentTypes.ContainsKey(fileInfo.Extension) with
+        | true -> ContentTypes.[fileInfo.Extension]
+        | _ -> "application/octet-stream"
+    response.ContentLength64 <- fileInfo.Length
+    use stream = fileInfo.OpenRead()
+    CopyStream stream response.OutputStream
+
+let HttpHandler (request : HttpListenerRequest) (response : HttpListenerResponse) (notifiable : IMessageListener) =
+    async {
+        try
+            GlobalLogger.Info (sprintf "#IN# (%O) %s" request.RemoteEndPoint request.RawUrl)
+            match (request.HttpMethod.ToUpper(), request.Url.AbsolutePath) with
+            | ("GET", "/getfile") ->
+                match GetFileInfo request with
+                | Some file ->
+                    response.StatusCode <- int HttpStatusCode.OK
+                    response.StatusDescription <- "OK"
+                    response.Headers.Add("Server", "Wazaa/0.0.1")
+                    WriteFileContent response file
+                | _ ->
+                    GlobalLogger.Warning (sprintf "#OUT# (%O) File Not Found" request.RemoteEndPoint)
+                    response.StatusCode <- int HttpStatusCode.NotFound
+                    response.StatusDescription <- "Not Found"
+                    response.ContentType <- "text/plain"
+                    response.Headers.Add("Server", "Wazaa/0.0.1")
+                    WriteWazaaCode response 404
+            | ("GET", "/searchfile") ->
+                HandleSearchFile (SearchFileArgs.FromQuery request.QueryString)
+                response.StatusCode <- int HttpStatusCode.OK
+                response.StatusDescription <- "OK"
+                response.ContentType <- "text/plain"
+                response.Headers.Add("Server", "Wazaa/0.0.1")
+                WriteWazaaCode response 0
+            | ("POST", "/foundfile") ->
+                ReadFileList request notifiable
+                response.StatusCode <- int HttpStatusCode.OK
+                response.StatusDescription <- "OK"
+                response.ContentType <- "text/plain"
+                response.Headers.Add("Server", "Wazaa/0.0.1")
+                WriteWazaaCode response 0
+            | _ ->
+                GlobalLogger.Warning (sprintf "#OUT# (%O) Not Found" request.RemoteEndPoint)
+                response.StatusCode <- int HttpStatusCode.NotFound
+                response.StatusDescription <- "Not Found"
+                response.ContentType <- "text/plain"
+                response.Headers.Add("Server", "Wazaa/0.0.1")
+                WriteWazaaCode response 404
+            response.OutputStream.Close()
+        with
+        | e -> GlobalLogger.Error (sprintf "Error occured while serving request: %O" e)
+    }
+
+let StartServer (endPoint : IPEndPoint) notifiable =
+    let listener = new HttpListener()
+    listener.Prefixes.Add (sprintf "http://%s:%d/" (endPoint.Address.ToString()) endPoint.Port)
+    listener.Start()
+    GlobalLogger.Info (sprintf "Server started on host %O." endPoint.Address)
+    GlobalLogger.Info (sprintf "Listening incoming connections on port %d..." endPoint.Port)
+    let task = Async.FromBeginEnd(listener.BeginGetContext, listener.EndGetContext)
+    async {
+        use! c = Async.OnCancel(fun () ->
+                                GlobalLogger.Warning "Server stopped."
+                                listener.Stop())
+        while true do
+            let! context = task
+            HttpHandler context.Request context.Response notifiable |> Async.Start
+    }
