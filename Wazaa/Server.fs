@@ -20,7 +20,7 @@ type IMessageListener =
 let RespondFiles (directory : DirectoryInfo) (args : SearchFileArgs) =
     let files = directory.EnumerateFiles()
                 |> Seq.map (fun file -> file.Name)
-                |> Seq.filter (fun fileName -> fileName.Contains(args.Name))
+                |> Seq.filter (fun fileName -> fileName.ToLower().Contains(args.Name.ToLower()))
                 |> Seq.toList
     match files with
     | [] -> ()
@@ -92,25 +92,21 @@ let GetFileInfo (request : HttpListenerRequest) =
         | _ -> None
     | _ -> None
 
-let ContentTypes =
-    [ ("jpg", "image/jpeg")
-      ("jpeg", "image/jpeg")
-      ("png", "image/png; charset=binary")
-      ("gif", "image/gif")
-      ("pdf", "application/pdf")
-      ("xml", "text/xml")
-      ("mp4", "video/mp4")
-      ("mp3", "audio/mpeg")
-      ("html", "text/html")
-      ("txt", "text/plain") ]
-    |> Seq.fold (fun (dict : Dictionary<string,string>) x -> dict.Add(fst x, snd x); dict) (new Dictionary<string,string>())
-    :> IDictionary<string,string>
+let WriteHeader (statusCode : HttpStatusCode) (response : HttpListenerResponse) =
+    response.ContentType <- "text/plain"
+    response.Headers.Add("Server", "Wazaa/0.0.1")
+    response.StatusCode <- int statusCode
+    match statusCode with
+    | HttpStatusCode.OK -> response.StatusDescription <- "OK"
+    | HttpStatusCode.NotFound -> response.StatusDescription <- "Not Found"
+    | _ -> ()
 
-let WriteFileContent (response : HttpListenerResponse) (fileInfo : FileInfo) =
-    response.ContentType <-
-        match ContentTypes.ContainsKey(fileInfo.Extension) with
-        | true -> ContentTypes.[fileInfo.Extension]
-        | _ -> "application/octet-stream"
+let WriteOkHeader = WriteHeader HttpStatusCode.OK
+let WriteNotFoundHeader = WriteHeader HttpStatusCode.NotFound
+
+let WriteFileContent (fileInfo : FileInfo) (response : HttpListenerResponse) =
+    response |> WriteOkHeader
+    response.ContentType <- "application/octet-stream"
     response.ContentLength64 <- fileInfo.Length
     response.Headers.Add("Content-Disposition", sprintf @"inline; filename=""%s""" fileInfo.Name)
     use stream = fileInfo.OpenRead()
@@ -123,38 +119,22 @@ let HttpHandler (request : HttpListenerRequest) (response : HttpListenerResponse
             match (request.HttpMethod.ToUpper(), request.Url.AbsolutePath) with
             | ("GET", "/getfile") ->
                 match GetFileInfo request with
-                | Some file ->
-                    response.StatusCode <- int HttpStatusCode.OK
-                    response.StatusDescription <- "OK"
-                    response.Headers.Add("Server", "Wazaa/0.0.1")
-                    WriteFileContent response file
+                | Some file -> response |> WriteFileContent file
                 | _ ->
                     GlobalLogger.Warning (sprintf "#OUT# (%O) File Not Found" request.RemoteEndPoint)
-                    response.StatusCode <- int HttpStatusCode.NotFound
-                    response.StatusDescription <- "Not Found"
-                    response.ContentType <- "text/plain"
-                    response.Headers.Add("Server", "Wazaa/0.0.1")
+                    response |> WriteNotFoundHeader
                     WriteWazaaCode response 404
             | ("GET", "/searchfile") ->
                 HandleSearchFile (SearchFileArgs.FromQuery request.QueryString)
-                response.StatusCode <- int HttpStatusCode.OK
-                response.StatusDescription <- "OK"
-                response.ContentType <- "text/plain"
-                response.Headers.Add("Server", "Wazaa/0.0.1")
+                response |> WriteOkHeader
                 WriteWazaaCode response 0
             | ("POST", "/foundfile") ->
                 ReadFileList request notifiable
-                response.StatusCode <- int HttpStatusCode.OK
-                response.StatusDescription <- "OK"
-                response.ContentType <- "text/plain"
-                response.Headers.Add("Server", "Wazaa/0.0.1")
+                response |> WriteOkHeader
                 WriteWazaaCode response 0
             | _ ->
                 GlobalLogger.Warning (sprintf "#OUT# (%O) Not Found" request.RemoteEndPoint)
-                response.StatusCode <- int HttpStatusCode.NotFound
-                response.StatusDescription <- "Not Found"
-                response.ContentType <- "text/plain"
-                response.Headers.Add("Server", "Wazaa/0.0.1")
+                response |> WriteNotFoundHeader
                 WriteWazaaCode response 404
             response.OutputStream.Close()
         with

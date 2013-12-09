@@ -95,6 +95,9 @@ let GetFile (record : FileRecord) (fileInfo : FileInfo) =
         use response = request.GetResponse()
         use stream = response.GetResponseStream()
 
+        if fileInfo.Exists then
+            fileInfo.Delete()
+
         use fileStream = fileInfo.OpenWrite()
         CopyStream stream fileStream
 

@@ -80,7 +80,7 @@ type SearchControl() as this =
         if not resultListView.Enabled then
             resultListView.Items.Clear()
         files
-        |> Seq.filter (fun x -> searchTextBox.TextLength > 0 && (x.Name.Contains(searchTextBox.Text)))
+        |> Seq.filter (fun x -> searchTextBox.TextLength > 0 && (x.Name.ToLower().Contains(searchTextBox.Text.ToLower())))
         |> Seq.iter (fun x -> if not ([ for i in resultListView.Items -> i.Tag :?> FileRecord ] |> Seq.exists (fun t -> t = x)) then
                                   resultListView.Items.Add(new ListViewItem([| x.Name; x.Owner.Address.ToString(); x.Owner.Port.ToString() |], Tag = x)) |> ignore)
         if resultListView.Items.Count > 0 then
